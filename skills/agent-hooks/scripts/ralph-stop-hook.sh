@@ -119,4 +119,6 @@ UPDATED=$(echo "$STATE" | jq \
   '.iteration = $iter | .last_checked_at = $ts')
 write_atomic "$STATE_FILE" "$UPDATED"
 
-block_with_reason "[RALPH LOOP ${NEW_ITERATION}/${MAX}] Task is NOT done. Continue working on the original task. Check your progress and push forward."
+# Block message uses prompt-hardening P5 (anti-reasoning) to counter
+# the agent's tendency to rationalize premature completion
+block_with_reason "[RALPH LOOP ${NEW_ITERATION}/${MAX}] Task is NOT done. Do NOT rationalize that the remaining work can be done in a follow-up. Do NOT claim completion with caveats like 'mostly done' or 'should work'. Check your original task and verify EVERY requirement is met before attempting to stop again."
