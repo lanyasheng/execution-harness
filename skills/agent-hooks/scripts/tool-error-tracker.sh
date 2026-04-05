@@ -58,8 +58,8 @@ mv "$TMP" "$STATE_FILE"
 # Output context injection based on threshold (using jq for safe JSON)
 if [ "$COUNT" -ge "$HARD_THRESHOLD" ]; then
   jq -n --arg ctx "MUST use an alternative approach. The tool '${TOOL}' with similar input has failed ${COUNT} times consecutively. Last error: ${ERROR:0:200}. Do NOT retry the same command — use a completely different method, tool, or library." \
-    '{"hookSpecificOutput":{"additionalContext":$ctx}}'
+    '{"hookSpecificOutput":{"hookEventName":"PostToolUseFailure","additionalContext":$ctx}}'
 elif [ "$COUNT" -ge "$SOFT_THRESHOLD" ]; then
   jq -n --arg ctx "The tool '${TOOL}' has failed ${COUNT} times with similar input. Consider: different parameters? different path? missing dependency? Last error: ${ERROR:0:200}" \
-    '{"hookSpecificOutput":{"additionalContext":$ctx}}'
+    '{"hookSpecificOutput":{"hookEventName":"PostToolUseFailure","additionalContext":$ctx}}'
 fi

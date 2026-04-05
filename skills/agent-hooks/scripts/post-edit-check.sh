@@ -59,5 +59,5 @@ esac
 if [ -n "$ERRORS" ]; then
   MSG=$(echo -e "$ERRORS" | head -10 | tr '\n' ' ')
   jq -n --arg ctx "Post-edit diagnostics found issues: $MSG" \
-    '{"hookSpecificOutput":{"additionalContext":$ctx}}'
+    '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":$ctx}}'
 fi

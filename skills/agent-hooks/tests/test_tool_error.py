@@ -97,4 +97,6 @@ class TestToolErrorAdvisor:
         advisor_inp = json.dumps({"tool_name": "Bash", "tool_input": {"command": "cargo build"}})
         stdout, _ = run("tool-error-advisor.sh", e, advisor_inp)
         result = json.loads(stdout)
-        assert result.get("decision") == "block"
+        # PreToolUse uses hookSpecificOutput.permissionDecision, not top-level decision
+        perm = result.get("hookSpecificOutput", {}).get("permissionDecision")
+        assert perm == "deny"

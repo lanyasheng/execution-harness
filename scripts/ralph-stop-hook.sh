@@ -68,8 +68,10 @@ MAX=$(echo "$STATE" | jq -r '.max_iterations // 50')
 LAST_CHECKED=$(echo "$STATE" | jq -r '.last_checked_at // ""')
 
 # === Safety valve 1: authentication errors ===
-STOP_REASON=$(echo "$INPUT" | jq -r '.stop_reason // ""' 2>/dev/null)
-if echo "$STOP_REASON" | grep -qiE '401|403|unauthorized|forbidden|auth.*error|token.*expired'; then
+# Note: Stop hook does not receive a stop_reason field. Check last_assistant_message
+# for API error indicators that suggest auth failure.
+LAST_MSG=$(echo "$INPUT" | jq -r '.last_assistant_message // ""' 2>/dev/null)
+if echo "$LAST_MSG" | grep -qiE '401|403|unauthorized|forbidden|authentication.*failed|token.*expired|APIAuthenticationError'; then
   write_atomic "$STATE_FILE" "$(echo "$STATE" | jq '.active = false | .deactivation_reason = "auth_error"')"
   allow
 fi
