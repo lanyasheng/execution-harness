@@ -57,7 +57,7 @@ case "$FILE" in
 esac
 
 if [ -n "$ERRORS" ]; then
-  # Escape for JSON
-  ESCAPED=$(echo -e "$ERRORS" | head -10 | sed 's/"/\\"/g' | tr '\n' ' ')
-  echo "{\"hookSpecificOutput\":{\"additionalContext\":\"Post-edit diagnostics found issues: ${ESCAPED}\"}}"
+  MSG=$(echo -e "$ERRORS" | head -10 | tr '\n' ' ')
+  jq -n --arg ctx "Post-edit diagnostics found issues: $MSG" \
+    '{"hookSpecificOutput":{"additionalContext":$ctx}}'
 fi

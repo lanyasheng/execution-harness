@@ -26,26 +26,20 @@ if [ -f "$STATE_FILE" ]; then
   if [ "$PREV_ACTIVE" = "true" ] || [ "$PREV_REASON" = "stale" ]; then
     # Previous session was active or stale-timed-out → resume
     echo "Resuming ralph from iteration ${PREV_ITER} (previous state: active=${PREV_ACTIVE}, reason=${PREV_REASON})"
+    TMP="${STATE_FILE}.${$}.$(date +%s).tmp"
     jq --argjson max "$MAX_ITERATIONS" --arg ts "$NOW" \
       '.active = true | .max_iterations = $max | .last_checked_at = $ts | .deactivation_reason = null | .resumed_at = $ts' \
-      "$STATE_FILE" > "${STATE_FILE}.tmp"
-    mv "${STATE_FILE}.tmp" "$STATE_FILE"
+      "$STATE_FILE" > "$TMP"
+    mv "$TMP" "$STATE_FILE"
     echo "Ralph resumed: ${STATE_FILE} (iteration ${PREV_ITER}/${MAX_ITERATIONS})"
     exit 0
   fi
 fi
 
 # --- Fresh init ---
-cat > "${STATE_FILE}.tmp" <<EOF
-{
-  "session_id": "${SESSION_ID}",
-  "active": true,
-  "iteration": 0,
-  "max_iterations": ${MAX_ITERATIONS},
-  "created_at": "${NOW}",
-  "last_checked_at": "${NOW}"
-}
-EOF
-
-mv "${STATE_FILE}.tmp" "$STATE_FILE"
+TMP="${STATE_FILE}.${$}.$(date +%s).tmp"
+jq -n --arg sid "$SESSION_ID" --argjson max "$MAX_ITERATIONS" --arg ts "$NOW" \
+  '{session_id: $sid, active: true, iteration: 0, max_iterations: $max, created_at: $ts, last_checked_at: $ts}' \
+  > "$TMP"
+mv "$TMP" "$STATE_FILE"
 echo "Ralph initialized: ${STATE_FILE} (max ${MAX_ITERATIONS} iterations)"

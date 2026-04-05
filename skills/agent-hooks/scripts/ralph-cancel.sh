@@ -16,13 +16,8 @@ NOW=$(date -u +%FT%TZ)
 EXPIRES=$(date -u -v+30S +%FT%TZ 2>/dev/null || date -u -d '+30 seconds' +%FT%TZ)
 
 CANCEL_FILE="${SESSION_DIR}/cancel.json"
-cat > "${CANCEL_FILE}.tmp" <<EOF
-{
-  "requested_at": "${NOW}",
-  "expires_at": "${EXPIRES}",
-  "reason": "${REASON}"
-}
-EOF
-
-mv "${CANCEL_FILE}.tmp" "$CANCEL_FILE"
+TMP="${CANCEL_FILE}.${$}.$(date +%s).tmp"
+jq -n --arg at "$NOW" --arg exp "$EXPIRES" --arg r "$REASON" \
+  '{requested_at: $at, expires_at: $exp, reason: $r}' > "$TMP"
+mv "$TMP" "$CANCEL_FILE"
 echo "Cancel signal sent for ${SESSION_ID} (expires in 30s)"

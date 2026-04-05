@@ -20,8 +20,9 @@ STATE_FILE="${SESSION_DIR}/tool-errors.json"
 
 TOOL=$(echo "$INPUT" | jq -r '.tool_name // ""')
 ERROR=$(echo "$INPUT" | jq -r '.error // ""' | head -c 500)
-INPUT_RAW=$(echo "$INPUT" | jq -r '.tool_input // ""' | head -c 200)
-INPUT_HASH=$(echo "$INPUT_RAW" | md5 2>/dev/null || echo "$INPUT_RAW" | md5sum 2>/dev/null | cut -d' ' -f1 || echo "unknown")
+# Use compact sorted JSON for deterministic hashing
+INPUT_RAW=$(echo "$INPUT" | jq -Sc '.tool_input // ""' | head -c 200)
+INPUT_HASH=$(echo "$INPUT_RAW" | md5 2>/dev/null || echo "$INPUT_RAW" | md5sum 2>/dev/null | cut -d' ' -f1 || shasum 2>/dev/null | cut -d' ' -f1 || echo "unknown")
 NOW=$(date -u +%FT%TZ)
 
 # Read existing state
@@ -54,9 +55,11 @@ jq -n \
   > "$TMP"
 mv "$TMP" "$STATE_FILE"
 
-# Output context injection based on threshold
+# Output context injection based on threshold (using jq for safe JSON)
 if [ "$COUNT" -ge "$HARD_THRESHOLD" ]; then
-  echo "{\"hookSpecificOutput\":{\"additionalContext\":\"MUST use an alternative approach. The tool '$TOOL' with similar input has failed $COUNT times consecutively. Last error: ${ERROR:0:200}. Do NOT retry the same command — use a completely different method, tool, or library.\"}}"
+  jq -n --arg ctx "MUST use an alternative approach. The tool '${TOOL}' with similar input has failed ${COUNT} times consecutively. Last error: ${ERROR:0:200}. Do NOT retry the same command — use a completely different method, tool, or library." \
+    '{"hookSpecificOutput":{"additionalContext":$ctx}}'
 elif [ "$COUNT" -ge "$SOFT_THRESHOLD" ]; then
-  echo "{\"hookSpecificOutput\":{\"additionalContext\":\"The tool '$TOOL' has failed $COUNT times with similar input. Consider: different parameters? different path? missing dependency? Last error: ${ERROR:0:200}\"}}"
+  jq -n --arg ctx "The tool '${TOOL}' has failed ${COUNT} times with similar input. Consider: different parameters? different path? missing dependency? Last error: ${ERROR:0:200}" \
+    '{"hookSpecificOutput":{"additionalContext":$ctx}}'
 fi
