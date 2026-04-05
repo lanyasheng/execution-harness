@@ -3,7 +3,6 @@
 import json
 import os
 import subprocess
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -13,17 +12,12 @@ SCRIPTS_DIR = Path(__file__).parent.parent / "scripts"
 
 @pytest.fixture
 def ralph_env(tmp_path):
-    """Create isolated ralph state directories."""
-    ralph_dir = tmp_path / "ralph"
-    cancel_dir = tmp_path / "cancel"
-    ralph_dir.mkdir()
-    cancel_dir.mkdir()
+    """Create isolated session-scoped state directories."""
     env = os.environ.copy()
     env["HOME"] = str(tmp_path)
     # Create the expected directory structure
-    shared = tmp_path / ".openclaw" / "shared-context"
-    (shared / "ralph").mkdir(parents=True)
-    (shared / "cancel").mkdir(parents=True)
+    sessions = tmp_path / ".openclaw" / "shared-context" / "sessions"
+    sessions.mkdir(parents=True)
     return env, tmp_path
 
 
@@ -39,12 +33,16 @@ def run_script(script_name, env, stdin_data="", args=None):
     return result.stdout.strip(), result.returncode
 
 
+def session_dir(tmp, session_id):
+    return tmp / ".openclaw" / "shared-context" / "sessions" / session_id
+
+
 class TestRalphInit:
     def test_creates_state_file(self, ralph_env):
         env, tmp = ralph_env
         stdout, rc = run_script("ralph-init.sh", env, args=["test-sess", "20"])
         assert rc == 0
-        state_file = tmp / ".openclaw/shared-context/ralph/test-sess.json"
+        state_file = session_dir(tmp, "test-sess") / "ralph.json"
         assert state_file.exists()
         state = json.loads(state_file.read_text())
         assert state["session_id"] == "test-sess"
@@ -55,7 +53,7 @@ class TestRalphInit:
     def test_default_max_iterations(self, ralph_env):
         env, tmp = ralph_env
         run_script("ralph-init.sh", env, args=["test-sess"])
-        state_file = tmp / ".openclaw/shared-context/ralph/test-sess.json"
+        state_file = session_dir(tmp, "test-sess") / "ralph.json"
         state = json.loads(state_file.read_text())
         assert state["max_iterations"] == 50
 
@@ -64,11 +62,27 @@ class TestRalphInit:
         _, rc = run_script("ralph-init.sh", env, args=[])
         assert rc != 0
 
+    def test_crash_recovery_resumes(self, ralph_env):
+        """Simulate crash: init, run 5 iterations, then re-init should resume."""
+        env, tmp = ralph_env
+        run_script("ralph-init.sh", env, args=["crash-test", "50"])
+        # Simulate 5 iterations by modifying state
+        state_file = session_dir(tmp, "crash-test") / "ralph.json"
+        state = json.loads(state_file.read_text())
+        state["iteration"] = 5
+        state_file.write_text(json.dumps(state))
+        # Re-init (crash recovery)
+        stdout, rc = run_script("ralph-init.sh", env, args=["crash-test", "50"])
+        assert rc == 0
+        assert "Resuming" in stdout
+        state = json.loads(state_file.read_text())
+        assert state["iteration"] == 5  # Preserved, not reset
+        assert state["active"] is True
+
 
 class TestRalphStopHook:
     def test_allows_when_no_session(self, ralph_env):
         env, _ = ralph_env
-        # No NC_SESSION set
         env.pop("NC_SESSION", None)
         stdout, rc = run_script("ralph-stop-hook.sh", env, stdin_data="{}")
         assert rc == 0
@@ -85,7 +99,6 @@ class TestRalphStopHook:
 
     def test_blocks_when_active(self, ralph_env):
         env, tmp = ralph_env
-        # Init ralph state
         run_script("ralph-init.sh", env, args=["block-test", "10"])
         env["NC_SESSION"] = "block-test"
         stdout, rc = run_script("ralph-stop-hook.sh", env, stdin_data="{}")
@@ -98,7 +111,6 @@ class TestRalphStopHook:
         env, tmp = ralph_env
         run_script("ralph-init.sh", env, args=["inc-test", "10"])
         env["NC_SESSION"] = "inc-test"
-        # Block twice
         run_script("ralph-stop-hook.sh", env, stdin_data="{}")
         stdout, _ = run_script("ralph-stop-hook.sh", env, stdin_data="{}")
         result = json.loads(stdout)
@@ -108,10 +120,8 @@ class TestRalphStopHook:
         env, tmp = ralph_env
         run_script("ralph-init.sh", env, args=["max-test", "3"])
         env["NC_SESSION"] = "max-test"
-        # Exhaust 3 iterations
         for _ in range(3):
             run_script("ralph-stop-hook.sh", env, stdin_data="{}")
-        # 4th should allow
         stdout, _ = run_script("ralph-stop-hook.sh", env, stdin_data="{}")
         result = json.loads(stdout)
         assert result.get("continue") is True
@@ -119,8 +129,7 @@ class TestRalphStopHook:
     def test_allows_when_inactive(self, ralph_env):
         env, tmp = ralph_env
         run_script("ralph-init.sh", env, args=["inactive-test", "10"])
-        # Manually set inactive
-        state_file = tmp / ".openclaw/shared-context/ralph/inactive-test.json"
+        state_file = session_dir(tmp, "inactive-test") / "ralph.json"
         state = json.loads(state_file.read_text())
         state["active"] = False
         state_file.write_text(json.dumps(state))
@@ -135,7 +144,7 @@ class TestRalphCancel:
         env, tmp = ralph_env
         stdout, rc = run_script("ralph-cancel.sh", env, args=["cancel-test"])
         assert rc == 0
-        cancel_file = tmp / ".openclaw/shared-context/cancel/cancel-test.json"
+        cancel_file = session_dir(tmp, "cancel-test") / "cancel.json"
         assert cancel_file.exists()
         signal = json.loads(cancel_file.read_text())
         assert "requested_at" in signal
@@ -145,7 +154,7 @@ class TestRalphCancel:
     def test_custom_reason(self, ralph_env):
         env, tmp = ralph_env
         run_script("ralph-cancel.sh", env, args=["cancel-test", "timeout"])
-        cancel_file = tmp / ".openclaw/shared-context/cancel/cancel-test.json"
+        cancel_file = session_dir(tmp, "cancel-test") / "cancel.json"
         signal = json.loads(cancel_file.read_text())
         assert signal["reason"] == "timeout"
 
@@ -157,8 +166,7 @@ class TestRalphCancel:
         stdout, _ = run_script("ralph-stop-hook.sh", env, stdin_data="{}")
         result = json.loads(stdout)
         assert result.get("continue") is True
-        # Check state shows cancelled
-        state_file = tmp / ".openclaw/shared-context/ralph/cancel-flow.json"
+        state_file = session_dir(tmp, "cancel-flow") / "ralph.json"
         state = json.loads(state_file.read_text())
         assert state["active"] is False
         assert state["deactivation_reason"] == "cancelled"
