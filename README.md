@@ -1,98 +1,36 @@
 # Execution Harness
 
-Claude Code agent 执行可靠性工具集。解决 agent 在长任务中的常见失败：提前停止、上下文丢失、重试死循环、限速挂死、crash 后状态丢失。
+**21 production patterns for making Claude Code agents actually finish their work.**
 
-蒸馏自 Claude Code v2.1.88 内部架构（Query Engine、Tool System、Permission Pipeline、Context Management、Session Persistence）和 [oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode) (OMC) 的生产实践。参考了 [Anthropic](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents) 和 [OpenAI](https://openai.com/index/harness-engineering/) 的 harness engineering 博客。
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Tests: 32 passed](https://img.shields.io/badge/tests-32%20passed-brightgreen)]()
+[![Claude Code](https://img.shields.io/badge/Claude%20Code-hooks%20compatible-blueviolet)]()
+[![Patterns: 21](https://img.shields.io/badge/patterns-21-orange)]()
 
-## 仓库结构
+---
 
+> Your agent stops after fixing 2 of 7 files. It retries `cargo build` 12 times in a container without cargo. It says "this should work" instead of running the test. It hits a rate limit and hangs forever in tmux.
+>
+> This repo fixes all of that.
+
+Distilled from **Claude Code v2.1.88 internals** (512K lines TypeScript), **[oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode)** production code, and **[Anthropic](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents) / [OpenAI](https://openai.com/index/harness-engineering/) harness engineering** research. Cross-referenced with [agentic-harness-patterns-skill](https://github.com/keli-wen/agentic-harness-patterns-skill), [ccunpacked.dev](https://ccunpacked.dev/), [everything-claude-code](https://github.com/affaan-m/everything-claude-code), and [15+ community repos](#sources).
+
+## Quick Start (60 seconds)
+
+```bash
+# 1. Clone
+git clone https://github.com/lanyasheng/execution-harness.git
+cd execution-harness
+
+# 2. Add hooks to Claude Code
+# Copy the settings.json snippet below into ~/.claude/settings.json
+
+# 3. Initialize persistent execution for a task
+bash skills/agent-hooks/scripts/ralph-init.sh my-task 50
 ```
-execution-harness/
-├── skills/
-│   ├── agent-hooks/          ← 可执行 hook 脚本（给系统集成者）
-│   │   ├── SKILL.md
-│   │   ├── scripts/          ← 8 个 bash 脚本
-│   │   ├── tests/            ← 32 个 pytest 测试
-│   │   └── references/       ← 5 个 pattern 详解
-│   ├── harness-design-patterns/  ← 设计模式知识库（给架构师）
-│   │   ├── SKILL.md
-│   │   └── references/       ← 10 个 pattern + 方法论 + 质量管道集成
-│   └── agent-ops/            ← 运维工具（给 SRE）
-│       ├── SKILL.md
-│       ├── scripts/          ← 1 个工具脚本
-│       ├── tests/            ← 5 个 pytest 测试
-│       └── references/       ← 6 个 pattern 详解
-└── shared/
-    └── session-state-layout.md   ← 跨 skill 共享的状态目录规范
-```
 
-## 三个 Skill
-
-### agent-hooks — 即插即用的 Hook 脚本
-
-**受众**：需要配置 Claude Code settings.json 的系统集成者。
-
-提供 8 个 bash 脚本，配到 Claude Code 的 hooks 里即可生效：
-
-| 脚本 | Hook 类型 | 功能 |
-|------|----------|------|
-| `ralph-init.sh` | CLI | 初始化持续执行（支持 crash 恢复） |
-| `ralph-stop-hook.sh` | Stop | 阻止 agent 提前停止，4 个安全阀保底 |
-| `ralph-cancel.sh` | CLI | 发送 30s TTL 取消信号 |
-| `tool-error-tracker.sh` | PostToolUseFailure | 追踪连续失败，3/5 次阈值升级 |
-| `tool-error-advisor.sh` | PreToolUse | 5 次失败后 deny 同一命令 |
-| `doubt-gate.sh` | Stop | 检测投机语言，强制提供证据 |
-| `post-edit-check.sh` | PostToolUse | 编辑后即时跑 linter/type checker |
-| `context-usage.sh` | CLI | 从 transcript 提取 input token 计数 |
-
-### harness-design-patterns — 设计模式参考
-
-**受众**：设计 agent 系统架构的工程师。
-
-10 个设计模式，每个包含：问题 → 原理 → tradeoff → 来源 → Claude Code 实证：
-
-| 模式 | 解决什么 |
-|------|---------|
-| Handoff 文档 | 跨阶段/跨压缩的上下文传递 |
-| 原子文件写入 | 并发状态文件安全 |
-| Compaction 记忆提取 | 压缩前被动抢救知识 |
-| 权限否决追踪 | 防止 agent 换表述绕过拒绝 |
-| 三门控记忆合并 | 跨 session 记忆碎片化 |
-| Hook Pair Bracket | 每轮 context/时间测量 |
-| Component-Scoped Hooks | 任务级别的 hook 控制 |
-| 三种委托模式 | Coordinator/Fork/Swarm 选型 |
-| Adaptive Complexity | 任务复杂度自适应执行强度 |
-| Hook Runtime Profiles | 环境级 hook 强度控制 |
-
-附带：[蒸馏方法论](skills/harness-design-patterns/references/distillation-methodology.md)（PCA 降维、Review-Execution 分离）和[质量管道集成指南](skills/harness-design-patterns/references/quality-pipeline-integration.md)。
-
-### agent-ops — 运维工具
-
-**受众**：维护运行中 agent 的 SRE。
-
-6 个运维 pattern（1 个有脚本，5 个为设计参考）：
-
-| 工具 | 状态 | 功能 |
-|------|------|------|
-| Context 估算 | **脚本** | 从 transcript 提取 token 使用量 |
-| Rate Limit 恢复 | 设计参考 | 扫描 tmux pane 检测限速，安全恢复 |
-| Stale Session Daemon | 设计参考 | Heartbeat + 死 session 知识回收 |
-| Checkpoint + Rollback | 设计参考 | 破坏性 Bash 前快照，失败后回滚 |
-| Token Budget | 设计参考 | 按 context 使用率注入预算指令 |
-| Auto Model Fallback | 设计参考 | 连续失败后建议升级模型 |
-
-## 安装
-
-### 前提条件
-
-- Claude Code CLI
-- `jq`（所有脚本依赖）
-- `bash`
-- 可选：`ruff`/`pyright`/`tsc`/`cargo`/`shellcheck`（post-edit-check 使用）
-
-### 配置 Hook
-
-将需要的脚本加入 `~/.claude/settings.json`：
+<details>
+<summary><b>settings.json hook configuration</b></summary>
 
 ```json
 {
@@ -122,98 +60,150 @@ execution-harness/
   }
 }
 ```
+</details>
 
-### 启用 Ralph 持续执行
+## What This Solves
 
-```bash
-# 初始化（session-id, max-iterations）
-bash skills/agent-hooks/scripts/ralph-init.sh my-task-001 50
+| Problem | What happens | Pattern that fixes it |
+|---------|-------------|----------------------|
+| Agent stops after fixing 2 of 7 files | `end_turn` too early | **Ralph** — Stop hook blocks premature stops |
+| "This should work" without running the test | Speculative completion | **Doubt Gate** — forces evidence before stopping |
+| `cargo build` × 12 in a container without cargo | Infinite retry loop | **Tool Error Escalation** — 5 failures → forced alternative |
+| Context compressed, agent forgets design decisions | Knowledge loss | **Handoff Documents** — persist decisions to disk |
+| Rate limit hit, tmux session hangs | No auto-recovery | **Rate Limit Recovery** — detect + safe resume |
+| Agent crash at iteration 37, restarts from 0 | Lost progress | **Crash Recovery** — ralph-init detects and resumes |
 
-# 取消
-bash skills/agent-hooks/scripts/ralph-cancel.sh my-task-001
+## What This Is NOT
+
+- **Not an agent framework.** No model calls, no prompt templates, no chains. Just hooks and scripts.
+- **Not a task scheduler.** No DAGs, no fan-in, no dependency management. That's orchestration, not execution.
+- **Not Claude Code specific in concept.** The patterns are portable. The scripts happen to use Claude Code's hook protocol.
+
+## Three Skills, Three Audiences
+
+```
+execution-harness/
+├── skills/
+│   ├── agent-hooks/               ← You're a developer configuring hooks
+│   ├── harness-design-patterns/   ← You're an architect designing agent systems
+│   └── agent-ops/                 ← You're an SRE keeping agents alive
+└── shared/                        ← Session state layout (used by all three)
 ```
 
-## 测试
+### agent-hooks — Drop-in scripts for Claude Code
 
-```bash
-# agent-hooks（27 tests）
-cd skills/agent-hooks && python3 -m pytest tests/ -v
+8 bash scripts, 27 tests. Configure in `settings.json`, forget about it.
 
-# agent-ops（5 tests）
-cd skills/agent-ops && python3 -m pytest tests/ -v
+| Script | Hook Type | What it does |
+|--------|----------|--------------|
+| `ralph-stop-hook.sh` | Stop | Blocks premature stops. 4 safety valves (auth error, cancel signal, 2h stale, max iterations) |
+| `ralph-init.sh` | CLI | Initialize persistent execution. Auto-resumes from crash |
+| `ralph-cancel.sh` | CLI | Send 30s TTL cancel signal |
+| `doubt-gate.sh` | Stop | Scans for hedging words ("maybe", "probably", "可能"). Forces evidence |
+| `tool-error-tracker.sh` | PostToolUseFailure | Tracks consecutive failures by tool+input hash |
+| `tool-error-advisor.sh` | PreToolUse | Denies retry after 5 consecutive failures of same command |
+| `post-edit-check.sh` | PostToolUse | Runs linter/type checker immediately after every edit |
+| `context-usage.sh` | CLI | Extracts input token count from transcript |
+
+Every script: reads `session_id` from Claude Code's stdin JSON (fallback to `$NC_SESSION` env var). All JSON output via `jq -n` (injection-safe). All state writes via write-then-rename (atomic).
+
+### harness-design-patterns — Architecture knowledge base
+
+10 design patterns. No executable code. Each pattern has: Problem → Principle → Tradeoffs → Source → Claude Code evidence.
+
+Covers: handoff documents, compaction memory extraction (PreCompact hook), denial circuit breakers, 3-gate memory consolidation, hook pair brackets, coordinator/fork/swarm delegation modes, adaptive complexity scoring, hook runtime profiles.
+
+Plus: [distillation methodology](skills/harness-design-patterns/references/distillation-methodology.md) (PCA analogy, review-execution separation) and [quality pipeline integration](skills/harness-design-patterns/references/quality-pipeline-integration.md).
+
+### agent-ops — Runtime monitoring and recovery
+
+6 operational patterns (1 scripted, 5 design references): context estimation, rate limit recovery, stale session daemon, checkpoint/rollback, token budget management, auto model fallback.
+
+## How It Was Built
+
+This repo is the result of a systematic distillation process — not a code dump.
+
+**8+ sources analyzed in parallel:**
+
+```
+Claude Code v2.1.88 source ──┐
+oh-my-claudecode (OMC)  ─────┤
+ccunpacked.dev ───────────────┤
+claude-howto ─────────────────┼──→ 40+ candidate patterns
+Claude Code official docs ────┤      ↓
+LastWhisperDev article ───────┤    dedup + prioritize
+GitHub: 6 community repos ───┤      ↓
+Anthropic/OpenAI blogs ───────┘    21 patterns → 3 skills
 ```
 
-## 架构设计
+**Methodology** ([full doc](skills/harness-design-patterns/references/distillation-methodology.md)):
 
-### Session-Scoped State
+The distillation follows LastWhisperDev's PCA analogy: "Code is high-dimensional, but valuable design patterns are low-rank." We injected taste vectors (Anthropic's harness engineering blog, OpenAI's Context Engineering four-axis framework) and projected the 512K-line codebase along those directions.
 
-所有运行时状态统一在 `sessions/<session-id>/` 下：
+Key method: **Review-Execution separation** — different agents for review (fact-checking against source) and execution (writing patterns), each in fresh sessions with handoff documents as the only shared context.
+
+**Quality assurance:** 3 rounds of multi-agent review (functionality → protocol compliance → factual accuracy). 53 issues found, 30 fixed, 5 reviewer errors identified and rejected. All hook field names verified against [official Claude Code docs](https://code.claude.com/docs/en/hooks) (26 hook events).
+
+## Positioning
+
+| | This repo | [agentic-harness-patterns](https://github.com/keli-wen/agentic-harness-patterns-skill) | [OMC](https://github.com/Yeachan-Heo/oh-my-claudecode) | [ECC](https://github.com/affaan-m/everything-claude-code) |
+|---|---|---|---|---|
+| **What** | Hook scripts + design patterns | Design patterns (pure knowledge) | CLI wrapper + orchestration layer | Plugin ecosystem + optimization |
+| **Executable code** | 8 bash scripts, 32 tests | 0 (knowledge only) | Full npm package | Full plugin package |
+| **Hook protocol verified** | Yes (against official docs) | N/A | Yes (production-tested) | Yes (production-tested) |
+| **Patterns covered** | 21 | 6 principles | 9 modes | 38 agents, 156 skills |
+| **Scope** | Execution reliability only | Harness architecture | Full agent lifecycle | Everything |
+| **Install friction** | Copy scripts + edit settings.json | `npx skills add` | `npm i -g` + `/setup` | Plugin marketplace |
+
+**This repo is the middle ground**: more than a knowledge base (has working scripts), less than a full framework (no runtime, no CLI wrapper). Install what you need, ignore the rest.
+
+## Session State Layout
+
+All runtime state lives under `sessions/<session-id>/`:
 
 ```
 sessions/<session-id>/
-  ralph.json              ← 持续执行状态
-  cancel.json             ← 取消信号（30s TTL）
-  handoffs/               ← 阶段间上下文传递
-  tool-errors.json        ← 工具错误追踪
-  denials.json            ← 权限否决追踪
+  ralph.json          ← persistent execution state
+  cancel.json         ← cancel signal (30s TTL)
+  handoffs/           ← stage handoff documents
+  tool-errors.json    ← consecutive failure tracking
+  denials.json        ← permission denial tracking
 ```
 
-清理只需 `rm -rf sessions/<session-id>/`。Crash 恢复只需检查目录是否存在。
+One `rm -rf` cleans everything. Crash recovery = check if directory exists.
 
-### Hook 协议
+## Testing
 
-所有脚本遵循 Claude Code hook 协议：
+```bash
+cd skills/agent-hooks && python3 -m pytest tests/ -v   # 27 tests
+cd skills/agent-ops && python3 -m pytest tests/ -v      # 5 tests
+```
 
-- **输入**：stdin 接收 JSON（包含 `session_id`, `transcript_path`, `tool_name` 等）
-- **输出**：stdout 输出 JSON（`{"decision":"block","reason":"..."}` 或无输出表示允许）
-- **安全**：所有 JSON 输出通过 `jq -n` 构造（防止注入）
-- **原子**：所有状态文件通过 write-then-rename 写入（防止并发损坏）
+Requires: `bash`, `jq`, `python3`, `pytest`.
 
-### Ralph 安全阀
+## Known Limitations
 
-Ralph stop hook 在以下条件下 **MUST 放行**，防止 agent 被永久阻塞：
+- **Context usage safety valve is not implemented** — Claude Code does not expose `context_window_size` to hook scripts (only available via statusLine stdin pipe). Claude Code's own reactive compaction handles overflow independently.
+- **Auto model fallback is advisory, not automatic** — hooks cannot control which model Claude Code uses. The pattern injects a suggestion into context.
+- **Doubt gate has false positives** — "should be", "could be" match in non-speculative contexts. The one-shot guard prevents infinite loops but means the second attempt always passes.
+- **Claude Code internal names** (AutoDream, DenialTrackingState, etc.) come from source-mapped v2.1.88 TypeScript. They are real but may change across versions.
 
-1. 认证失败（401/403，从 `last_assistant_message` 检测）
-2. Cancel 信号存在且未过期
-3. 闲置超时 > 2 小时
-4. 达到 max_iterations
+## Sources
 
-> Context usage >= 95% 安全阀**未实现**——Claude Code 不在 hook 输入或 transcript 中暴露 `context_window_size`（该数据仅通过 statusLine stdin pipe 提供给 HUD 插件）。Claude Code 自身的 reactive compaction 机制独立处理 context 溢出。
-
-## 信息来源
-
-| 来源 | 提供了什么 |
-|------|-----------|
-| [Claude Code 源码 v2.1.88](https://github.com/openedclaude/claude-reviews-claude) | Query Engine 循环、Tool System、Permission Pipeline、Context Management、Session Persistence 内部架构 |
-| [oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode) | Ralph persistent-mode、Stop hook 机制、Cancel TTL、Stale 阈值、Team runtime |
-| [ccunpacked.dev](https://ccunpacked.dev/) | yoloClassifier、DenialTracking、AutoDream、MCP auto-healing、Memory extraction |
-| [claude-howto](https://github.com/luongnv89/claude-howto) | Prompt-type hooks、Agent-type hooks、Hook pair bracket、Component-scoped hooks |
-| [Claude Code 官方文档](https://code.claude.com/docs/en/hooks) | 26 个 hook 事件、输入/输出 schema、permission 协议 |
-| [LastWhisperDev](https://mp.weixin.qq.com/s/R9EgZlx1RnXK4L12OBQn-w) + [agentic-harness-patterns-skill](https://github.com/keli-wen/agentic-harness-patterns-skill) | 蒸馏方法论、PCA 降维类比、Review-Execution 分离 |
-| [Anthropic](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents) / [OpenAI](https://openai.com/index/harness-engineering/) | Harness engineering 设计原则 |
-| GitHub 社区 | [plugin-doubt-gate](https://github.com/johnlindquist/plugin-doubt-gate)、[Continuous-Claude-v3](https://github.com/parcadei/Continuous-Claude-v3)、[everything-claude-code](https://github.com/affaan-m/everything-claude-code)、[sdd-autopilot](https://github.com/rubenzarroca/sdd-autopilot) |
-
-## 蒸馏方法论
-
-本仓库的 21 个 pattern 不是 Claude Code 的客观映射，而是经过特定视角投影后的产物。蒸馏过程借鉴了 LastWhisperDev 的 PCA 类比：
-
-> 代码是高维的，但有价值的设计模式是低秩的。蒸馏的本质是找到主成分。
-
-三个关键方法论选择：
-
-1. **品味注入**：以 Anthropic/OpenAI 的 harness engineering 博客和 Context Engineering 四轴框架（select/write/compress/isolate）作为基向量
-2. **Review-Execution 分离**：用不同的 agent 做 review 和 execution，互不可见对方的 session
-3. **每轮新 session**：每轮 review-action 在全新 session 中执行，通过 handoff 文件传递上下文
-
-详见 [distillation-methodology.md](skills/harness-design-patterns/references/distillation-methodology.md)。
-
-## 已知局限
-
-- **Context usage 安全阀无法在 hook 中实现** — `context_window_size` 仅通过 statusLine stdin pipe 暴露
-- **Auto Model Fallback 是建议性的，不是自动的** — hook 无法控制 Claude Code 使用哪个模型
-- **Claude Code 内部 API 名称来自 source-mapped 源码 (v2.1.88)** — minified bundle 中被混淆，可能随版本变化
-- **Post-edit diagnostics 速度取决于 linter** — TypeScript 的 `tsc --noEmit` 在大项目上可能需要 30 秒+，建议 `async: true`
-- **Doubt gate 的 hedging 词匹配有误报风险** — "should be"、"could be" 在非投机语境中也会触发
+| Source | What we extracted |
+|--------|------------------|
+| [Claude Code v2.1.88](https://github.com/openedclaude/claude-reviews-claude) | Query Engine loop, Tool System, Permission Pipeline, Context Management, Session Persistence |
+| [oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode) | Ralph persistent-mode, Cancel TTL (30s), Stale threshold (2h), Team runtime v2 |
+| [ccunpacked.dev](https://ccunpacked.dev/) | DenialTracking, AutoDream, MCP auto-healing, Memory extraction during compaction |
+| [claude-howto](https://github.com/luongnv89/claude-howto) | Prompt-type/Agent-type hooks, Hook pair bracket, Component-scoped hooks, `once: true` |
+| [Claude Code official docs](https://code.claude.com/docs/en/hooks) | 26 hook events, input/output JSON schemas, permission protocol |
+| [LastWhisperDev](https://mp.weixin.qq.com/s/R9EgZlx1RnXK4L12OBQn-w) | Distillation methodology, PCA analogy, Review-Execution separation |
+| [agentic-harness-patterns-skill](https://github.com/keli-wen/agentic-harness-patterns-skill) | 6 design principles (Memory, Skills, Tools, Context, Multi-agent, Lifecycle) |
+| [plugin-doubt-gate](https://github.com/johnlindquist/plugin-doubt-gate) | Speculation detection via hedging word scan |
+| [Continuous-Claude-v3](https://github.com/parcadei/Continuous-Claude-v3) | TLDR 5-layer analysis, file claims, stale session daemon, post-edit diagnostics |
+| [everything-claude-code](https://github.com/affaan-m/everything-claude-code) | Hook runtime profiles, instinct evolution, observer loop prevention |
+| [sdd-autopilot](https://github.com/rubenzarroca/sdd-autopilot) | Adaptive complexity scoring, 8-phase pipeline triage |
+| [Anthropic](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents) / [OpenAI](https://openai.com/index/harness-engineering/) | Harness engineering design principles, filesystem-as-context |
 
 ## License
 
