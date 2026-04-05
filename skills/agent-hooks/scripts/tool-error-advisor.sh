@@ -9,7 +9,8 @@ SESSIONS_DIR="${HOME}/.openclaw/shared-context/sessions"
 HARD_THRESHOLD=5
 
 INPUT=$(cat)
-SESSION_ID="${NC_SESSION:-}"
+SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // ""' 2>/dev/null)
+[ -z "$SESSION_ID" ] && SESSION_ID="${NC_SESSION:-}"
 [ -z "$SESSION_ID" ] && echo '{"continue":true}' && exit 0
 
 STATE_FILE="${SESSIONS_DIR}/${SESSION_ID}/tool-errors.json"

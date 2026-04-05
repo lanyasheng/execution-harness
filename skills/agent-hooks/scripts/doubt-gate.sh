@@ -8,7 +8,8 @@ set -euo pipefail
 SESSIONS_DIR="${HOME}/.openclaw/shared-context/sessions"
 
 INPUT=$(cat)
-SESSION_ID="${NC_SESSION:-}"
+SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // ""' 2>/dev/null)
+[ -z "$SESSION_ID" ] && SESSION_ID="${NC_SESSION:-}"
 [ -z "$SESSION_ID" ] && echo '{"continue":true}' && exit 0
 
 SESSION_DIR="${SESSIONS_DIR}/${SESSION_ID}"

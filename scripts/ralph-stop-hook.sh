@@ -41,8 +41,9 @@ parse_utc_epoch() {
 # Read hook input
 INPUT=$(cat)
 
-# Determine session ID
-SESSION_ID="${NC_SESSION:-}"
+# Determine session ID: prefer stdin JSON, fallback to env var
+SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // ""' 2>/dev/null)
+[ -z "$SESSION_ID" ] && SESSION_ID="${NC_SESSION:-}"
 [ -z "$SESSION_ID" ] && allow
 
 # Session directory

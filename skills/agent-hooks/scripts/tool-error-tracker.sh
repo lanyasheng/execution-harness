@@ -10,7 +10,8 @@ SOFT_THRESHOLD=3
 HARD_THRESHOLD=5
 
 INPUT=$(cat)
-SESSION_ID="${NC_SESSION:-}"
+SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // ""' 2>/dev/null)
+[ -z "$SESSION_ID" ] && SESSION_ID="${NC_SESSION:-}"
 [ -z "$SESSION_ID" ] && exit 0
 
 SESSION_DIR="${SESSIONS_DIR}/${SESSION_ID}"
@@ -18,7 +19,7 @@ mkdir -p "$SESSION_DIR"
 STATE_FILE="${SESSION_DIR}/tool-errors.json"
 
 TOOL=$(echo "$INPUT" | jq -r '.tool_name // ""')
-ERROR=$(echo "$INPUT" | jq -r '.error // .tool_output // ""' | head -c 500)
+ERROR=$(echo "$INPUT" | jq -r '.error // ""' | head -c 500)
 INPUT_RAW=$(echo "$INPUT" | jq -r '.tool_input // ""' | head -c 200)
 INPUT_HASH=$(echo "$INPUT_RAW" | md5 2>/dev/null || echo "$INPUT_RAW" | md5sum 2>/dev/null | cut -d' ' -f1 || echo "unknown")
 NOW=$(date -u +%FT%TZ)
