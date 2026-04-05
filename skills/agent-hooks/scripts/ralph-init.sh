@@ -4,7 +4,7 @@
 #
 # Creates session-scoped state directory and ralph state file.
 # If a prior session state exists (crash recovery), resumes from last iteration.
-# Called by dispatch.sh when --ralph flag is used.
+# Call before starting a Claude Code session that needs persistent execution.
 
 set -euo pipefail
 

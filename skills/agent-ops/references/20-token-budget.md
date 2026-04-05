@@ -24,15 +24,21 @@ Agent 在处理复杂任务时，前半部分消耗了大量 context（读了太
 ### UserPromptSubmit hook
 
 ```bash
-# 估算 context 使用量（借助 Pattern 5 的 transcript 尾部读取）
-TRANSCRIPT=$(find ~/.claude/sessions -name "*.jsonl" -newer "$TMPDIR/session-start" | head -1)
-if [ -f "$TRANSCRIPT" ]; then
-  USAGE=$(bash scripts/context-usage.sh "$TRANSCRIPT" | grep -o '[0-9]*%' | tr -d '%')
-  if [ -n "$USAGE" ]; then
-    if [ "$USAGE" -ge 80 ]; then
-      echo "{\"hookSpecificOutput\":{\"additionalContext\":\"WARNING: Context usage at ${USAGE}%. For remaining work: 1) Use subagents for file-heavy tasks 2) Avoid reading entire files, use targeted grep 3) Consider /compact if quality is degrading.\"}}"
-    elif [ "$USAGE" -ge 60 ]; then
-      echo "{\"hookSpecificOutput\":{\"additionalContext\":\"Context at ${USAGE}%. Budget remaining work carefully — prefer grep over full file reads.\"}}"
+# 从 hook 输入获取 transcript 路径（UserPromptSubmit hook 提供 transcript_path）
+INPUT=$(cat)
+TRANSCRIPT=$(echo "$INPUT" | jq -r '.transcript_path // ""')
+if [ -n "$TRANSCRIPT" ] && [ -f "$TRANSCRIPT" ]; then
+  # context-usage.sh 输出 "Input tokens: NNNNN"（原始 token 数，非百分比）
+  # 因为 Claude Code 不在 transcript 中暴露 context_window_size
+  INPUT_TOKENS=$(bash context-usage.sh "$TRANSCRIPT" | grep -o '[0-9]*$')
+  if [ -n "$INPUT_TOKENS" ]; then
+    # 粗略阈值：200K context window 的 80% ≈ 160K tokens
+    if [ "$INPUT_TOKENS" -ge 160000 ]; then
+      jq -n --arg ctx "WARNING: Input tokens at ${INPUT_TOKENS}. Context is heavily loaded. For remaining work: 1) Use subagents for file-heavy tasks 2) Avoid reading entire files, use targeted grep 3) Consider /compact if quality is degrading." \
+        '{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":$ctx}}'
+    elif [ "$INPUT_TOKENS" -ge 120000 ]; then
+      jq -n --arg ctx "Input tokens at ${INPUT_TOKENS}. Budget remaining work carefully — prefer grep over full file reads." \
+        '{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":$ctx}}'
     fi
   fi
 fi

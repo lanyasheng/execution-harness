@@ -18,7 +18,8 @@
 INPUT=$(cat)
 SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // ""')
 TRANSCRIPT=$(echo "$INPUT" | jq -r '.transcript_path // ""')
-CTX=$(bash context-usage.sh "$TRANSCRIPT" 2>/dev/null | grep -o '[0-9]*%' | tr -d '%' || echo "0")
+# context-usage.sh 输出 "Input tokens: NNNNN"（无百分比——context_window_size 不可用）
+CTX=$(bash context-usage.sh "$TRANSCRIPT" 2>/dev/null | grep -o '[0-9]*$' || echo "0")
 jq -n --arg ts "$(date +%s)" --arg ctx "$CTX" --arg sid "$SESSION_ID" \
   '{start_ts: $ts, start_ctx: $ctx, session_id: $sid}' > "$TMPDIR/bracket-${SESSION_ID}.json"
 ```
@@ -33,7 +34,8 @@ BRACKET_FILE="$TMPDIR/bracket-${SESSION_ID}.json"
 [ -f "$BRACKET_FILE" ] || exit 0
 START=$(cat "$BRACKET_FILE")
 ELAPSED=$(( $(date +%s) - $(echo "$START" | jq -r '.start_ts') ))
-CUR_CTX=$(bash context-usage.sh "$TRANSCRIPT" 2>/dev/null | grep -o '[0-9]*%' | tr -d '%' || echo "0")
+# context-usage.sh 输出 "Input tokens: NNNNN"
+CUR_CTX=$(bash context-usage.sh "$TRANSCRIPT" 2>/dev/null | grep -o '[0-9]*$' || echo "0")
 START_CTX=$(echo "$START" | jq -r '.start_ctx')
 CTX_DELTA=$(( CUR_CTX - START_CTX ))
 echo "Turn: ${ELAPSED}s, context delta: ${CTX_DELTA}%"

@@ -75,7 +75,7 @@ triggers:
 | 脚本 | Hook 类型 | 功能 | 详情 |
 |------|----------|------|------|
 | `ralph-init.sh <id> [max]` | CLI 调用 | 初始化持续执行状态（支持 crash 恢复） | [详情](references/01-ralph.md) |
-| `ralph-stop-hook.sh` | Stop | 阻止提前停止，5 个安全阀保底 | [详情](references/01-ralph.md) |
+| `ralph-stop-hook.sh` | Stop | 阻止提前停止，4 个安全阀保底 | [详情](references/01-ralph.md) |
 | `ralph-cancel.sh <id> [reason]` | CLI 调用 | 发送 30s TTL 取消信号 | [详情](references/07-cancel-ttl.md) |
 | `tool-error-tracker.sh` | PostToolUseFailure | 追踪连续失败，3 次软提示 / 5 次强制换方案 | [详情](references/03-tool-error.md) |
 | `tool-error-advisor.sh` | PreToolUse | 5 次失败后 block 同一命令 | [详情](references/03-tool-error.md) |

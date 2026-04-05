@@ -16,7 +16,7 @@
 |---------|---------------|---------|
 | `minimal` | 仅 Pattern 6（原子写入）| 快速实验、探索性编码 |
 | `standard` | Pattern 1/3/5/6/7 | 日常开发 |
-| `strict` | 全部 18 个 Pattern | 生产变更、安全修复、正式 review |
+| `strict` | 全部 Pattern | 生产变更、安全修复、正式 review |
 
 ### 细粒度控制
 

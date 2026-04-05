@@ -103,7 +103,6 @@ execution-harness/
 | `tool-error-tracker.sh` | PostToolUseFailure | Tracks consecutive failures by tool+input hash |
 | `tool-error-advisor.sh` | PreToolUse | Denies retry after 5 consecutive failures of same command |
 | `post-edit-check.sh` | PostToolUse | Runs linter/type checker immediately after every edit |
-| `context-usage.sh` | CLI | Extracts input token count from transcript |
 
 Every script: reads `session_id` from Claude Code's stdin JSON (fallback to `$NC_SESSION` env var). All JSON output via `jq -n` (injection-safe). All state writes via write-then-rename (atomic).
 
