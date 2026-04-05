@@ -6,12 +6,16 @@ How execution-harness patterns integrate with the improvement-* skill family.
 
 **Problem:** Evaluation tasks that require multi-turn interaction may time out or stop prematurely, producing false negatives.
 
-**Integration:** For interactive evaluator runs (not headless `-p` mode), dispatch the evaluation with `--ralph --max-iterations 10` to ensure the evaluator completes all task suite items.
+**Integration:** For interactive evaluator runs (not headless `-p` mode), initialize Ralph before starting the evaluation session:
 
 ```bash
-dispatch.sh --type eval --id skill-xyz-eval \
-  --ralph --max-iterations 10 \
-  --prompt "Run improvement-evaluator task suite for skill-xyz"
+# 1. Initialize Ralph persistent execution
+bash ralph-init.sh eval-skill-xyz 10
+
+# 2. Start Claude Code with the evaluation task (interactive mode)
+claude --permission-mode bypassPermissions
+
+# Ralph stop hook (configured in settings.json) will block premature stops
 ```
 
 For headless mode, use `--max-turns 200` (Claude Code built-in). Ralph is not needed for headless.

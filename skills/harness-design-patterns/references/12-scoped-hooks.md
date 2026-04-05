@@ -27,12 +27,12 @@ hooks:
 ```json
 {
   "type": "command",
-  "command": "inject-latest-handoff.sh",
+  "command": "bash /path/to/your-init-hook.sh",
   "once": true
 }
 ```
 
-用途：在 session 开始时注入最新的 handoff 文档（Pattern 2），只注入一次。
+用途：在 session 开始时执行一次性初始化（如注入最新的 handoff 文档），之后自动停用。
 
 ## 用途
 

@@ -139,6 +139,59 @@ class TestRalphStopHook:
         assert result.get("continue") is True
 
 
+    def test_allows_on_auth_error(self, ralph_env):
+        """Safety valve: auth errors in last_assistant_message should allow stop."""
+        env, tmp = ralph_env
+        run_script("ralph-init.sh", env, args=["auth-test", "50"])
+        env["NC_SESSION"] = "auth-test"
+        hook_input = json.dumps({
+            "session_id": "auth-test",
+            "last_assistant_message": "Error: 401 Unauthorized - API key expired",
+        })
+        stdout, _ = run_script("ralph-stop-hook.sh", env, stdin_data=hook_input)
+        result = json.loads(stdout)
+        assert result.get("continue") is True
+        state = json.loads((session_dir(tmp, "auth-test") / "ralph.json").read_text())
+        assert state["deactivation_reason"] == "auth_error"
+
+    def test_allows_on_stale_timeout(self, ralph_env):
+        """Safety valve: >2 hours idle should allow stop."""
+        env, tmp = ralph_env
+        run_script("ralph-init.sh", env, args=["stale-test", "50"])
+        # Manually set last_checked_at to 3 hours ago
+        state_file = session_dir(tmp, "stale-test") / "ralph.json"
+        state = json.loads(state_file.read_text())
+        from datetime import datetime, timedelta, timezone
+        three_hours_ago = (datetime.now(timezone.utc) - timedelta(hours=3)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        state["last_checked_at"] = three_hours_ago
+        state_file.write_text(json.dumps(state))
+        env["NC_SESSION"] = "stale-test"
+        stdout, _ = run_script("ralph-stop-hook.sh", env, stdin_data="{}")
+        result = json.loads(stdout)
+        assert result.get("continue") is True
+        state = json.loads(state_file.read_text())
+        assert state["deactivation_reason"] == "stale"
+
+    def test_expired_cancel_is_ignored(self, ralph_env):
+        """Expired cancel signal should be cleaned up, ralph continues."""
+        env, tmp = ralph_env
+        run_script("ralph-init.sh", env, args=["expire-test", "50"])
+        # Create an expired cancel signal (expires_at in the past)
+        cancel_file = session_dir(tmp, "expire-test") / "cancel.json"
+        cancel_file.write_text(json.dumps({
+            "requested_at": "2020-01-01T00:00:00Z",
+            "expires_at": "2020-01-01T00:00:30Z",
+            "reason": "old_cancel",
+        }))
+        env["NC_SESSION"] = "expire-test"
+        stdout, _ = run_script("ralph-stop-hook.sh", env, stdin_data="{}")
+        result = json.loads(stdout)
+        # Ralph should block (expired cancel ignored, ralph still active)
+        assert result.get("decision") == "block"
+        # Expired cancel file should be cleaned up
+        assert not cancel_file.exists()
+
+
 class TestRalphCancel:
     def test_creates_cancel_signal(self, ralph_env):
         env, tmp = ralph_env
