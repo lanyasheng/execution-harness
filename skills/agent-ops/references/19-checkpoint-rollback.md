@@ -22,14 +22,18 @@ TOOL=$(echo "$INPUT" | jq -r '.tool_name')
 CMD=$(echo "$INPUT" | jq -r '.tool_input.command // ""')
 # 检测破坏性命令
 if echo "$CMD" | grep -qE 'rm -rf|git reset --hard|git checkout --|docker rm|kubectl delete'; then
-  # 创建快照（--include-untracked 确保新建文件也被捕获）
-  CHECKPOINT=$(git stash create --include-untracked 2>/dev/null || git stash create 2>/dev/null)
+  # 创建快照（先 git add -A 让 untracked 文件进入 index，再 stash create）
+  # 注意：git stash create 不支持 --include-untracked，只有 push/save 支持
+  git add -A 2>/dev/null
+  CHECKPOINT=$(git stash create 2>/dev/null)
+  git reset HEAD 2>/dev/null  # 恢复 index 到原始状态
   if [ -n "$CHECKPOINT" ]; then
     echo "$CHECKPOINT" > "sessions/${SESSION_ID}/checkpoint"
-    echo '{"hookSpecificOutput":{"additionalContext":"Checkpoint created before destructive command."}}'
+    # PreToolUse 不支持 additionalContext，只能用 permissionDecision
+    # 这里只记录 checkpoint，不修改工具行为
   fi
 fi
-echo '{"continue":true}'
+# 允许工具执行（不输出任何 JSON = 默认允许）
 ```
 
 ### PostToolUseFailure hook（自动回滚）
@@ -55,6 +59,6 @@ echo '{"hookSpecificOutput":{"additionalContext":"Auto-rolled back to checkpoint
 
 ## Tradeoff
 
-- git stash 只覆盖 git tracked 文件——untracked 文件的删除无法恢复
+- 通过先 `git add -A` 可以捕获 untracked 文件，但会短暂改变 index 状态
 - 每个破坏性命令前都 stash 会有 I/O 开销
 - 命令匹配是 regex——可能误判（`rm -rf` 在代码注释里也会触发）

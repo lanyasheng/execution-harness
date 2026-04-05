@@ -22,6 +22,8 @@ Claude Code 的 `withRetry` 已经包含了模型 fallback：
 
 ### StopFailure hook
 
+> 注意：StopFailure 事件出现在 Claude Code 官方文档的 hook 事件列表中（"When the turn ends due to an API error"），但部分旧版 SDK type definitions 中可能未包含此事件。请在使用前用 `claude --help` 或官方文档确认当前版本是否支持。此外，hook 脚本**无法实际切换模型**——只能在 additionalContext 中建议 agent 使用不同模型（agent 可能不遵守）。
+
 ```bash
 INPUT=$(cat)
 ERROR=$(echo "$INPUT" | jq -r '.error // ""')
