@@ -1,45 +1,42 @@
 # Execution Harness
 
-**21 production patterns for making Claude Code agents actually finish their work.**
+21 production patterns for making Claude Code agents actually finish their work.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Tests: 42 passed](https://img.shields.io/badge/tests-42%20passed-brightgreen)]()
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-hooks%20compatible-blueviolet)]()
 [![Patterns: 21](https://img.shields.io/badge/patterns-21-orange)]()
 
----
-
-> Your agent stops after fixing 2 of 7 files. It retries `cargo build` 12 times in a container without cargo. It says "this should work" instead of running the test. It hits a rate limit and hangs forever in tmux.
+> Agent 改了 7 个文件中的 2 个就停了。`cargo build` 在没有 cargo 的容器里重试了 12 次。说 "this should work" 但不跑测试。限速后 tmux session 永远挂着。
 >
-> This repo fixes all of that.
+> 这个仓库修所有这些。
 
-Distilled from **Claude Code v2.1.88 internals** (512K lines TypeScript), **[oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode)** production code, and **[Anthropic](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents) / [OpenAI](https://openai.com/index/harness-engineering/) harness engineering** research. Cross-referenced with [agentic-harness-patterns-skill](https://github.com/keli-wen/agentic-harness-patterns-skill), [ccunpacked.dev](https://ccunpacked.dev/), [everything-claude-code](https://github.com/affaan-m/everything-claude-code), and [15+ community repos](#sources).
+蒸馏自 [Claude Code v2.1.88 源码](https://github.com/openedclaude/claude-reviews-claude) (512K 行 TS)、[oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode) 生产实践、[Anthropic](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents) / [OpenAI](https://openai.com/index/harness-engineering/) harness engineering 研究、及 [15+ 社区仓库](#sources)。
 
-## Quick Start (60 seconds)
+## Table of Contents
 
-### Option A: Install via npx skills (recommended)
+- [Quick Start](#quick-start)
+- [What This Solves](#what-this-solves)
+- [Three Skills](#three-skills-three-audiences)
+- [Session State](#session-state-layout)
+- [Testing](#testing)
+- [Positioning](#positioning)
+- [Known Limitations](#known-limitations)
+- [Sources](#sources)
+
+## Quick Start
 
 ```bash
+# 推荐：一键安装
 npx skills add github:lanyasheng/execution-harness
-# Select which skills to install: agent-hooks, harness-design-patterns, agent-ops
+
+# 或手动
+git clone https://github.com/lanyasheng/execution-harness.git && cd execution-harness
 ```
 
-### Option B: Clone and configure manually
-
-```bash
-# 1. Clone
-git clone https://github.com/lanyasheng/execution-harness.git
-cd execution-harness
-
-# 2. Add hooks to Claude Code
-# Copy the settings.json snippet below into ~/.claude/settings.json
-
-# 3. Initialize persistent execution for a task
-bash skills/agent-hooks/scripts/ralph-init.sh my-task 50
-```
+然后把 hooks 配到 `~/.claude/settings.json`：
 
 <details>
-<summary><b>settings.json hook configuration</b></summary>
+<summary><b>settings.json hook 配置（点击展开）</b></summary>
 
 ```json
 {
@@ -70,6 +67,11 @@ bash skills/agent-hooks/scripts/ralph-init.sh my-task 50
 }
 ```
 </details>
+
+```bash
+# 初始化持续执行（最多 50 轮迭代，crash 后自动恢复）
+bash skills/agent-hooks/scripts/ralph-init.sh my-task 50
+```
 
 ## What This Solves
 
@@ -129,28 +131,9 @@ Plus: [distillation methodology](skills/harness-design-patterns/references/disti
 
 ## How It Was Built
 
-This repo is the result of a systematic distillation process — not a code dump.
+8 个源码/社区项目并行分析 → 40+ 候选模式 → 去重 + 优先级排序 → 21 patterns × 3 skills。蒸馏方法论：[distillation-methodology.md](skills/harness-design-patterns/references/distillation-methodology.md)。
 
-**8+ sources analyzed in parallel:**
-
-```
-Claude Code v2.1.88 source ──┐
-oh-my-claudecode (OMC)  ─────┤
-ccunpacked.dev ───────────────┤
-claude-howto ─────────────────┼──→ 40+ candidate patterns
-Claude Code official docs ────┤      ↓
-LastWhisperDev article ───────┤    dedup + prioritize
-GitHub: 6 community repos ───┤      ↓
-Anthropic/OpenAI blogs ───────┘    21 patterns → 3 skills
-```
-
-**Methodology** ([full doc](skills/harness-design-patterns/references/distillation-methodology.md)):
-
-The distillation follows LastWhisperDev's PCA analogy: "Code is high-dimensional, but valuable design patterns are low-rank." We injected taste vectors (Anthropic's harness engineering blog, OpenAI's Context Engineering four-axis framework) and projected the 512K-line codebase along those directions.
-
-Key method: **Review-Execution separation** — different agents for review (fact-checking against source) and execution (writing patterns), each in fresh sessions with handoff documents as the only shared context.
-
-**Quality assurance:** 3 rounds of multi-agent review (functionality → protocol compliance → factual accuracy). 53 issues found, 30 fixed, 5 reviewer errors identified and rejected. All hook field names verified against [official Claude Code docs](https://code.claude.com/docs/en/hooks) (26 hook events).
+3 轮多 agent review（功能 → 协议合规 → 事实准确），53 issues found，hook field names 全部对照 [官方文档](https://code.claude.com/docs/en/hooks)（26 hook events）验证。
 
 ## Positioning
 
