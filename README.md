@@ -3,7 +3,7 @@
 **21 production patterns for making Claude Code agents actually finish their work.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Tests: 32 passed](https://img.shields.io/badge/tests-32%20passed-brightgreen)]()
+[![Tests: 35 passed](https://img.shields.io/badge/tests-35%20passed-brightgreen)]()
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-hooks%20compatible-blueviolet)]()
 [![Patterns: 21](https://img.shields.io/badge/patterns-21-orange)]()
 
@@ -92,7 +92,7 @@ execution-harness/
 
 ### agent-hooks — Drop-in scripts for Claude Code
 
-8 bash scripts, 27 tests. Configure in `settings.json`, forget about it.
+7 bash scripts, 30 tests. Configure in `settings.json`, forget about it.
 
 | Script | Hook Type | What it does |
 |--------|----------|--------------|
@@ -148,7 +148,7 @@ Key method: **Review-Execution separation** — different agents for review (fac
 | | This repo | [agentic-harness-patterns](https://github.com/keli-wen/agentic-harness-patterns-skill) | [OMC](https://github.com/Yeachan-Heo/oh-my-claudecode) | [ECC](https://github.com/affaan-m/everything-claude-code) |
 |---|---|---|---|---|
 | **What** | Hook scripts + design patterns | Design patterns (pure knowledge) | CLI wrapper + orchestration layer | Plugin ecosystem + optimization |
-| **Executable code** | 8 bash scripts, 32 tests | 0 (knowledge only) | Full npm package | Full plugin package |
+| **Executable code** | 8 bash scripts, 35 tests | 0 (knowledge only) | Full npm package | Full plugin package |
 | **Hook protocol verified** | Yes (against official docs) | N/A | Yes (production-tested) | Yes (production-tested) |
 | **Patterns covered** | 21 | 6 principles | 9 modes | 38 agents, 156 skills |
 | **Scope** | Execution reliability only | Harness architecture | Full agent lifecycle | Everything |
@@ -174,7 +174,7 @@ One `rm -rf` cleans everything. Crash recovery = check if directory exists.
 ## Testing
 
 ```bash
-cd skills/agent-hooks && python3 -m pytest tests/ -v   # 27 tests
+cd skills/agent-hooks && python3 -m pytest tests/ -v   # 30 tests
 cd skills/agent-ops && python3 -m pytest tests/ -v      # 5 tests
 ```
 
