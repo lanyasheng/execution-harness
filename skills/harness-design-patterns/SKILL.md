@@ -41,7 +41,7 @@ Agent harness 架构设计决策参考。蒸馏自 Claude Code 内部架构、OM
 |---|------|---------|------|
 | 1 | **Handoff 文档** | 跨阶段/跨压缩的上下文传递 | [详情](references/02-handoff.md) |
 | 2 | **原子文件写入** | 并发状态文件安全 | [详情](references/06-atomic-write.md) |
-| 3 | **Compaction 记忆提取** | 压缩前被动抢救知识 | [详情](references/08-compaction-extract.md) |
+| 3 | **Compaction 记忆提取** | 压缩前被动抢救知识（PreCompact hook） | [详情](references/08-compaction-extract.md) |
 | 4 | **权限否决追踪** | 防止 agent 绕过拒绝 | [详情](references/09-denial-tracking.md) |
 | 5 | **三门控记忆合并** | 跨 session 记忆碎片化 | [详情](references/10-memory-consolidation.md) |
 | 6 | **Hook Pair Bracket** | 每轮 context/时间测量 | [详情](references/11-hook-bracket.md) |
@@ -49,6 +49,8 @@ Agent harness 架构设计决策参考。蒸馏自 Claude Code 内部架构、OM
 | 8 | **三种委托模式** | 多 agent 协调方式选型 | [详情](references/14-delegation-modes.md) |
 | 9 | **Adaptive Complexity** | 任务复杂度自适应 | [详情](references/16-adaptive-complexity.md) |
 | 10 | **Hook Runtime Profiles** | 环境级 hook 强度控制 | [详情](references/18-hook-profiles.md) |
+
+> 注：reference 文件名保留原始编号（02/06/08/...）以兼容 monorepo 中的交叉引用。
 
 ## 常见场景选型
 

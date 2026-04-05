@@ -53,8 +53,23 @@ else
 fi
 ```
 
+## 安全规则
+
+**MUST：当 triage 不确定时，默认 Standard，NEVER 默认 Express。** Express 跳过验证——如果一个安全修复被误判为 Trivial，agent 会不经验证直接提交。
+
+**MUST：Express 模式不应用于任何写入生产代码的操作。** Express 适合只读分析、文档更新、配置微调。
+
+## 已知局限
+
+文件计数 triage 是极简启发式。已知失败场景：
+- "Fix the auth bug" 提到 0 个文件但可能涉及 10+ 文件
+- 带连字符/数字的文件名（`my-component.ts`, `v2.config.js`）匹配不到
+- 上下文信息（是否涉及安全、数据库、支付）比文件数更重要
+
+**生产建议**：用 LLM triage（一次 Haiku 调用评估复杂度）替代 regex 启发式。
+
 ## Tradeoff
 
 - Triage 本身会消耗一些 token（但远少于在简单任务上运行全流程的 overhead）
-- 误判复杂度会导致过度/不足保障——但比一刀切好
+- 误判复杂度会导致过度/不足保障——文件计数只是起点，需要持续优化
 - 历史数据可以提升 triage 准确度（追踪实际 vs 预估复杂度）

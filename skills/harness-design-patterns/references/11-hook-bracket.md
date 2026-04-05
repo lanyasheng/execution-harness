@@ -13,17 +13,30 @@
 **UserPromptSubmit hook（"before"）**：
 ```bash
 # 记录轮次开始状态
-jq -n --arg ts "$(date +%s)" --arg ctx "$CONTEXT_USAGE" \
-  '{start_ts: $ts, start_ctx: $ctx}' > "$TMPDIR/bracket-${SESSION_ID}.json"
+# 注意：Claude Code 不提供 CONTEXT_USAGE 环境变量
+# 需要通过 transcript 尾部读取获取（见 agent-ops/context-usage.sh）
+INPUT=$(cat)
+SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // ""')
+TRANSCRIPT=$(echo "$INPUT" | jq -r '.transcript_path // ""')
+CTX=$(bash context-usage.sh "$TRANSCRIPT" 2>/dev/null | grep -o '[0-9]*%' | tr -d '%' || echo "0")
+jq -n --arg ts "$(date +%s)" --arg ctx "$CTX" --arg sid "$SESSION_ID" \
+  '{start_ts: $ts, start_ctx: $ctx, session_id: $sid}' > "$TMPDIR/bracket-${SESSION_ID}.json"
 ```
 
 **Stop hook（"after"）**：
 ```bash
 # 读取开始状态，计算本轮增量
-START=$(cat "$TMPDIR/bracket-${SESSION_ID}.json")
+INPUT=$(cat)
+SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // ""')
+TRANSCRIPT=$(echo "$INPUT" | jq -r '.transcript_path // ""')
+BRACKET_FILE="$TMPDIR/bracket-${SESSION_ID}.json"
+[ -f "$BRACKET_FILE" ] || exit 0
+START=$(cat "$BRACKET_FILE")
 ELAPSED=$(( $(date +%s) - $(echo "$START" | jq -r '.start_ts') ))
-CTX_DELTA=$(( CURRENT_CTX - $(echo "$START" | jq -r '.start_ctx') ))
-echo "Turn: ${ELAPSED}s, context delta: ${CTX_DELTA} tokens"
+CUR_CTX=$(bash context-usage.sh "$TRANSCRIPT" 2>/dev/null | grep -o '[0-9]*%' | tr -d '%' || echo "0")
+START_CTX=$(echo "$START" | jq -r '.start_ctx')
+CTX_DELTA=$(( CUR_CTX - START_CTX ))
+echo "Turn: ${ELAPSED}s, context delta: ${CTX_DELTA}%"
 ```
 
 ## 用途
