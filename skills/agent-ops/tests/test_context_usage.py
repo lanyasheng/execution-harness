@@ -1,5 +1,6 @@
 """Tests for context-usage.sh script."""
 
+import json
 import os
 import subprocess
 import tempfile
@@ -23,23 +24,43 @@ def run_context_usage(transcript_content):
 
 
 class TestContextUsage:
-    def test_extracts_usage(self):
-        # Create a fake transcript with >4KB of padding + token info at the end
-        padding = '{"type":"message","content":"x"}\n' * 200  # ~6KB
-        tail = '{"type":"response","input_tokens":80000,"context_window":200000}\n'
-        output = run_context_usage(padding + tail)
-        assert "Context usage:" in output
-        assert "40%" in output  # 80000/200000 = 40%
+    def test_extracts_tokens_from_realistic_format(self):
+        """Real Claude Code transcripts have usage nested in a large JSON object."""
+        # Simulate a realistic final JSONL line with nested usage
+        line = json.dumps({
+            "type": "assistant",
+            "message": {"role": "assistant", "content": "Done."},
+            "usage": {
+                "input_tokens": 150000,
+                "cache_creation_input_tokens": 0,
+                "cache_read_input_tokens": 120000,
+                "output_tokens": 500,
+            }
+        })
+        output = run_context_usage(line + "\n")
+        assert "Input tokens: 150000" in output
+
+    def test_filters_streaming_placeholder(self):
+        """Streaming entries have input_tokens=1, should be filtered."""
+        line = json.dumps({"type": "stream", "usage": {"input_tokens": 1, "output_tokens": 0}})
+        output = run_context_usage(line + "\n")
+        assert output == ""
 
     def test_empty_file_no_output(self):
         output = run_context_usage("")
         assert output == ""
 
-    def test_small_file_no_output(self):
-        output = run_context_usage('{"small": true}\n')
+    def test_no_usage_field(self):
+        line = json.dumps({"type": "message", "content": "hello"})
+        output = run_context_usage(line + "\n")
         assert output == ""
 
-    def test_no_token_info_no_output(self):
-        padding = '{"type":"message","content":"x"}\n' * 200
-        output = run_context_usage(padding)
-        assert output == ""
+    def test_uses_last_line(self):
+        """Should read the last line, not intermediate lines."""
+        lines = []
+        for i in range(50):
+            lines.append(json.dumps({"type": "stream", "usage": {"input_tokens": 1, "output_tokens": 0}}))
+        # Last line has the real count
+        lines.append(json.dumps({"usage": {"input_tokens": 200000, "output_tokens": 1000}}))
+        output = run_context_usage("\n".join(lines) + "\n")
+        assert "Input tokens: 200000" in output

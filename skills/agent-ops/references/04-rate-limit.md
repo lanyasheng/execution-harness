@@ -22,10 +22,21 @@ done
 
 ## 恢复
 
+**WARNING: 盲发 Enter 到 tmux pane 是危险的。** 如果 pane 当前显示的是破坏性确认提示（"Delete all files? [y/N]"），Enter 会确认操作。
+
+安全恢复流程：
 ```bash
-# 限速解除后发送回车恢复
-tmux send-keys -t "$pane" "" Enter
+# 1. 再次捕获 pane 内容，确认最后几行仍然是限速消息
+tail=$(tmux capture-pane -t "$pane" -p -S -5 2>/dev/null)
+if echo "$tail" | grep -qiE 'rate.?limit|too many requests|usage limit'; then
+  # 2. 确认不是确认提示
+  if ! echo "$tail" | grep -qiE '\[y/N\]|\[yes/no\]|confirm|delete|overwrite|force push'; then
+    tmux send-keys -t "$pane" "" Enter
+  fi
+fi
 ```
+
+不要直接 `tmux send-keys Enter`，MUST 先验证 pane 当前内容。
 
 ## OMC 的完整方案（参考）
 

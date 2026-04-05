@@ -4,19 +4,22 @@
 # Reads JSON from stdin (Claude Code hook protocol).
 # Outputs JSON via jq (no string interpolation — injection-safe).
 #
-# 5 Safety invariants (NEVER block):
-#   1. context usage >= 95% (read from transcript tail)
-#   2. authentication errors (401/403 in stop_reason)
-#   3. cancel signal (with TTL)
-#   4. stale state (>2 hours idle)
-#   5. max iterations reached
+# 4 Safety invariants (NEVER block):
+#   1. authentication errors (401/403 in stop_reason)
+#   2. cancel signal (with TTL)
+#   3. stale state (>2 hours idle)
+#   4. max iterations reached
+#
+# NOTE: Context usage >= 95% safety valve is NOT implemented because
+# Claude Code transcripts do not contain context_window_size. That data
+# is only available via the statusLine stdin pipe (HUD plugins), not
+# accessible to hook scripts. Claude Code's own reactive compaction
+# handles context overflow independently.
 
 set -euo pipefail
 
 SESSIONS_DIR="${HOME}/.openclaw/shared-context/sessions"
 STALE_THRESHOLD_S=7200  # 2 hours
-CONTEXT_DANGER_THRESHOLD=95
-
 allow() { echo '{"continue":true}'; exit 0; }
 
 block_with_reason() {
@@ -64,31 +67,14 @@ ITERATION=$(echo "$STATE" | jq -r '.iteration // 0')
 MAX=$(echo "$STATE" | jq -r '.max_iterations // 50')
 LAST_CHECKED=$(echo "$STATE" | jq -r '.last_checked_at // ""')
 
-# === Safety valve 1: context usage >= 95% ===
-TRANSCRIPT=$(echo "$INPUT" | jq -r '.transcript_path // ""' 2>/dev/null)
-if [ -n "$TRANSCRIPT" ] && [ -f "$TRANSCRIPT" ]; then
-  TSIZE=$(stat -f%z "$TRANSCRIPT" 2>/dev/null || stat -c%s "$TRANSCRIPT" 2>/dev/null || echo 0)
-  if [ "$TSIZE" -gt 4096 ]; then
-    INPUT_TOKENS=$(tail -c 4096 "$TRANSCRIPT" | grep -o '"input_tokens":[0-9]*' | tail -1 | grep -o '[0-9]*' || true)
-    CONTEXT_WINDOW=$(tail -c 4096 "$TRANSCRIPT" | grep -o '"context_window":[0-9]*' | tail -1 | grep -o '[0-9]*' || true)
-    if [ -n "$INPUT_TOKENS" ] && [ -n "$CONTEXT_WINDOW" ] && [ "$CONTEXT_WINDOW" -gt 0 ]; then
-      USAGE=$(( INPUT_TOKENS * 100 / CONTEXT_WINDOW ))
-      if [ "$USAGE" -ge "$CONTEXT_DANGER_THRESHOLD" ]; then
-        write_atomic "$STATE_FILE" "$(echo "$STATE" | jq '.active = false | .deactivation_reason = "context_overflow"')"
-        allow
-      fi
-    fi
-  fi
-fi
-
-# === Safety valve 2: authentication errors ===
+# === Safety valve 1: authentication errors ===
 STOP_REASON=$(echo "$INPUT" | jq -r '.stop_reason // ""' 2>/dev/null)
 if echo "$STOP_REASON" | grep -qiE '401|403|unauthorized|forbidden|auth.*error|token.*expired'; then
   write_atomic "$STATE_FILE" "$(echo "$STATE" | jq '.active = false | .deactivation_reason = "auth_error"')"
   allow
 fi
 
-# === Safety valve 3: stale (>2 hours since last activity) ===
+# === Safety valve 2: stale (>2 hours since last activity) ===
 if [ -n "$LAST_CHECKED" ]; then
   LAST_EPOCH=$(parse_utc_epoch "$LAST_CHECKED")
   NOW_EPOCH=$(date +%s)
@@ -99,7 +85,7 @@ if [ -n "$LAST_CHECKED" ]; then
   fi
 fi
 
-# === Safety valve 4: cancel signal ===
+# === Safety valve 3: cancel signal ===
 CANCEL_FILE="${SESSION_DIR}/cancel.json"
 if [ -f "$CANCEL_FILE" ]; then
   EXPIRES=$(jq -r '.expires_at // ""' "$CANCEL_FILE")
@@ -116,7 +102,7 @@ if [ -f "$CANCEL_FILE" ]; then
   fi
 fi
 
-# === Safety valve 5: max iterations ===
+# === Safety valve 4: max iterations ===
 if [ "$ITERATION" -ge "$MAX" ]; then
   write_atomic "$STATE_FILE" "$(echo "$STATE" | jq '.active = false | .deactivation_reason = "max_iterations"')"
   allow

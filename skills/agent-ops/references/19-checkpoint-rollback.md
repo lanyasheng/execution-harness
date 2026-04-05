@@ -22,8 +22,8 @@ TOOL=$(echo "$INPUT" | jq -r '.tool_name')
 CMD=$(echo "$INPUT" | jq -r '.tool_input.command // ""')
 # 检测破坏性命令
 if echo "$CMD" | grep -qE 'rm -rf|git reset --hard|git checkout --|docker rm|kubectl delete'; then
-  # 创建快照
-  CHECKPOINT=$(git stash create 2>/dev/null)
+  # 创建快照（--include-untracked 确保新建文件也被捕获）
+  CHECKPOINT=$(git stash create --include-untracked 2>/dev/null || git stash create 2>/dev/null)
   if [ -n "$CHECKPOINT" ]; then
     echo "$CHECKPOINT" > "sessions/${SESSION_ID}/checkpoint"
     echo '{"hookSpecificOutput":{"additionalContext":"Checkpoint created before destructive command."}}'

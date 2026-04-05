@@ -97,11 +97,12 @@ triggers:
 ## 安全阀
 
 Ralph stop hook 在以下条件下 MUST 放行，NEVER block：
-1. Context usage >= 95%
-2. 认证失败（401/403）
-3. Cancel 信号存在且未过期
-4. 闲置超时 > 2 小时
-5. 达到 max_iterations
+1. 认证失败（401/403，从 stop_reason 检测）
+2. Cancel 信号存在且未过期
+3. 闲置超时 > 2 小时
+4. 达到 max_iterations
+
+> 注：Context usage >= 95% 安全阀**未实现**——Claude Code 不在 hook 输入或 transcript 中暴露 context_window_size。Claude Code 自身的 reactive compaction 机制会独立处理 context 溢出。
 
 ## 条件判断规则
 
