@@ -17,6 +17,15 @@ Distilled from **Claude Code v2.1.88 internals** (512K lines TypeScript), **[oh-
 
 ## Quick Start (60 seconds)
 
+### Option A: Install via npx skills (recommended)
+
+```bash
+npx skills add github:lanyasheng/execution-harness
+# Select which skills to install: agent-hooks, harness-design-patterns, agent-ops
+```
+
+### Option B: Clone and configure manually
+
 ```bash
 # 1. Clone
 git clone https://github.com/lanyasheng/execution-harness.git
