@@ -38,7 +38,7 @@ ELAPSED=$(( $(date +%s) - $(echo "$START" | jq -r '.start_ts') ))
 CUR_CTX=$(bash context-usage.sh "$TRANSCRIPT" 2>/dev/null | grep -o '[0-9]*$' || echo "0")
 START_CTX=$(echo "$START" | jq -r '.start_ctx')
 CTX_DELTA=$(( CUR_CTX - START_CTX ))
-echo "Turn: ${ELAPSED}s, context delta: ${CTX_DELTA}%"
+echo "Turn: ${ELAPSED}s, context delta: ${CTX_DELTA} tokens"
 ```
 
 ## 用途

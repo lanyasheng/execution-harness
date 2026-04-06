@@ -6,35 +6,40 @@ Claude Code 的 auto-compact 在 context 接近上限时自动触发。压缩会
 
 ## 原理
 
-利用 Claude Code 的 PreCompact hook，在压缩发生前提取关键信息到磁盘。来自 Claude Code 内部的 `buildExtractAutoOnlyPrompt` 和 `buildExtractCombinedPrompt`——Claude Code 在压缩时并行提取 memory。
+利用 Stop hook 定期提取关键信息到磁盘。注意：Claude Code **没有** PreCompact hook event。实际实现通过 Stop hook 每 N 轮触发一次快照，作为压缩前的预防性知识保存。Claude Code 内部有 `buildExtractAutoOnlyPrompt` 和 `buildExtractCombinedPrompt`，但这些是内部 API，不暴露给外部 hook。
 
 ## 与 Handoff 文档的区别
 
 | | Handoff 文档 (Pattern 2) | Compaction 提取 (Pattern 8) |
 |---|---|---|
 | 触发时机 | 阶段结束时（主动） | 压缩触发时（被动） |
-| 触发者 | Agent 自行写入 | PreCompact hook 自动注入 |
-| 内容控制 | 完全由 agent 决定 | 由 hook prompt 引导 |
-| 可靠性 | 依赖 agent 遵守指令 | 系统级保证 |
+| 触发者 | Agent 自行写入 | Stop hook 定期触发 |
+| 内容控制 | 完全由 agent 决定 | 由脚本自动快照 |
+| 可靠性 | 依赖 agent 遵守指令 | 系统级定期保证 |
 
 两者互补：handoff 是计划内的上下文传递，compaction 提取是应急的知识抢救。
 
 ## 实现
 
-settings.json 中配置 PreCompact hook：
+settings.json 中配置 Stop hook（每 N 轮触发一次快照）：
 
 ```json
 {
   "hooks": {
-    "PreCompact": [{
+    "Stop": [{
       "hooks": [{
-        "type": "prompt",
-        "prompt": "Context 即将被压缩。在压缩前，将以下信息写入 handoff 文档：1) 当前任务的完成状态 2) 已做的关键决策及原因 3) 已排除的方案 4) 已知风险 5) 下一步计划。写入路径：sessions/<session-id>/handoffs/pre-compact.md"
+        "type": "command",
+        "command": "bash /path/to/skills/context-memory/scripts/compaction-extract.sh",
+        "async": true
       }]
     }]
   }
 }
 ```
+
+通过 `COMPACTION_EXTRACT_INTERVAL` 环境变量控制快照频率（默认每 15 轮）。
+
+> **注意**: Claude Code 没有 PreCompact hook event。此脚本通过定期快照实现预防性知识保存，而非精确的压缩前拦截。
 
 ## Claude Code 的 Memory Extraction 机制
 
