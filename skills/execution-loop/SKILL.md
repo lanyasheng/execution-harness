@@ -56,4 +56,4 @@ triggers:
 | `ralph-cancel.sh <id>` | CLI | 发送取消信号 |
 | `doubt-gate.sh` | Stop | 检测 hedging words |
 | `task-completion-gate.sh` | Stop | 读 .harness-tasks.json |
-| `drift-reanchor.sh` | UserPromptSubmit | 每 N 轮注入原始任务 |
+| `drift-reanchor.sh` | Stop | 每 N 轮注入原始任务提醒 |

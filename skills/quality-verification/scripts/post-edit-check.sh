@@ -31,7 +31,7 @@ case "$FILE" in
     fi
     ;;
   *.ts|*.tsx)
-    if command -v npx &>/dev/null && [ -f "$(dirname "$FILE")/tsconfig.json" ] || [ -f "tsconfig.json" ]; then
+    if command -v npx &>/dev/null && { [ -f "$(dirname "$FILE")/tsconfig.json" ] || [ -f "tsconfig.json" ]; }; then
       TYPE=$(npx tsc --noEmit "$FILE" 2>&1 | grep -E 'error TS' | head -3) || true
       [ -n "$TYPE" ] && ERRORS="${ERRORS}tsc: ${TYPE}\n"
     fi

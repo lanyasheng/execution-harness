@@ -49,6 +49,6 @@ triggers:
 |------|----------|------|
 | `tool-error-tracker.sh` | PostToolUseFailure | 追踪连续失败 |
 | `tool-error-advisor.sh` | PreToolUse | 5 次失败后 block |
-| `denial-tracker.sh` | PostToolUse | 追踪权限否决 |
+| `denial-tracker.sh` | Stop | 从对话中推断权限否决 |
 | `checkpoint-rollback.sh` | PreToolUse (Bash) | 破坏性命令前 stash |
 | `tool-input-guard.sh` | PreToolUse (Bash) | 安全验证 |

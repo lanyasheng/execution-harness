@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
-# denial-tracker.sh — PostToolUse hook: track permission denials by pattern
-# Warns at 3 denials, suggests alternative at 5.
+# denial-tracker.sh — Stop hook: track tool denials inferred from conversation
+# Checks if the last assistant message mentions being denied/blocked.
+# Warns at 3 denials of same tool, suggests alternative at 5.
+# NOTE: Claude Code does not provide a dedicated denial hook event.
+# This script infers denials from the stop context.
 
 set -euo pipefail
 
@@ -11,15 +14,21 @@ HARD_THRESHOLD=5
 INPUT=$(head -c 20000)
 SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // ""' 2>/dev/null)
 [ -z "$SESSION_ID" ] && SESSION_ID="${NC_SESSION:-}"
-[ -z "$SESSION_ID" ] && exit 0
+[ -z "$SESSION_ID" ] && echo '{"continue":true}' && exit 0
 
-# Check if this was a denied action
-WAS_DENIED=$(echo "$INPUT" | jq -r '.was_denied // .denied // false' 2>/dev/null)
-[ "$WAS_DENIED" != "true" ] && exit 0
+# Extract last assistant message to detect denial patterns
+LAST_MSG=$(echo "$INPUT" | jq -r '.last_assistant_message // ""' 2>/dev/null)
+[ -z "$LAST_MSG" ] && echo '{"continue":true}' && exit 0
 
-TOOL=$(echo "$INPUT" | jq -r '.tool_name // "unknown"' 2>/dev/null)
-TOOL_INPUT=$(echo "$INPUT" | jq -r '.tool_input | tostring' 2>/dev/null | head -c 200)
-PATTERN="${TOOL}:${TOOL_INPUT}"
+# Check for denial indicators in the message
+if ! echo "$LAST_MSG" | grep -qiE '(permission denied|was denied|user denied|not allowed|denied by user|blocked by hook|cannot proceed)'; then
+  echo '{"continue":true}'
+  exit 0
+fi
+
+# Try to extract the tool name from denial context
+TOOL=$(echo "$LAST_MSG" | grep -oiE '(Bash|Write|Edit|Read|Glob|Grep|Agent)\b' | head -1)
+[ -z "$TOOL" ] && TOOL="unknown"
 
 SESSION_DIR="${SESSIONS_DIR}/${SESSION_ID}"
 STATE_FILE="${SESSION_DIR}/denials.json"
@@ -29,7 +38,7 @@ NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 # Read or init state
 if [ -f "$STATE_FILE" ]; then
-  COUNT=$(jq -r --arg p "$PATTERN" '.patterns[$p].count // 0' "$STATE_FILE" 2>/dev/null)
+  COUNT=$(jq -r --arg t "$TOOL" '.patterns[$t].count // 0' "$STATE_FILE" 2>/dev/null)
 else
   COUNT=0
 fi
@@ -38,19 +47,21 @@ COUNT=$((COUNT + 1))
 # Write state atomically
 TMP="${STATE_FILE}.${$}.tmp"
 if [ -f "$STATE_FILE" ]; then
-  jq --arg p "$PATTERN" --argjson c "$COUNT" --arg t "$NOW" \
-    '.patterns[$p] = {count: $c, last: $t}' "$STATE_FILE" > "$TMP"
+  jq --arg t "$TOOL" --argjson c "$COUNT" --arg ts "$NOW" \
+    '.patterns[$t] = {count: $c, last: $ts}' "$STATE_FILE" > "$TMP"
 else
-  jq -n --arg p "$PATTERN" --argjson c "$COUNT" --arg t "$NOW" \
-    '{patterns: {($p): {count: $c, last: $t}}}' > "$TMP"
+  jq -n --arg t "$TOOL" --argjson c "$COUNT" --arg ts "$NOW" \
+    '{patterns: {($t): {count: $c, last: $ts}}}' > "$TMP"
 fi
 mv "$TMP" "$STATE_FILE"
 
 # Output based on threshold
 if [ "$COUNT" -ge "$HARD_THRESHOLD" ]; then
-  jq -n --arg ctx "This action pattern '${TOOL}' has been denied ${COUNT} times. You MUST use a completely different approach. Do not rephrase — use a different tool or method entirely." \
+  jq -n --arg ctx "Tool '${TOOL}' has been denied ${COUNT} times. You MUST use a completely different approach." \
     '{"hookSpecificOutput":{"additionalContext":$ctx}}'
 elif [ "$COUNT" -ge "$SOFT_THRESHOLD" ]; then
-  jq -n --arg ctx "WARNING: Action pattern '${TOOL}' denied ${COUNT} times. Consider an alternative approach." \
+  jq -n --arg ctx "WARNING: Tool '${TOOL}' denied ${COUNT} times. Consider an alternative approach." \
     '{"hookSpecificOutput":{"additionalContext":$ctx}}'
+else
+  echo '{"continue":true}'
 fi

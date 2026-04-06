@@ -26,7 +26,7 @@ if echo "$COMMAND" | grep -qE 'rm\s+.*(/usr|/etc|/var|/System|/Library)\b'; then
 fi
 
 # Check: chmod 777 on system paths
-if echo "$COMMAND" | grep -qE 'chmod\s+777\s+.*(^/|/usr|/etc|/var|/System)'; then
+if echo "$COMMAND" | grep -qE 'chmod\s+777\s+(/|/usr|/etc|/var|/System)\b'; then
   BLOCKED="Blocked: chmod 777 on system path"
 fi
 
