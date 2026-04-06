@@ -28,7 +28,7 @@ PREV_ERROR=$(jq -r '.error // ""' "$STATE_FILE" | head -c 200)
 # Only advise if same tool+input pattern is being retried
 if [ "$PREV_TOOL" = "$TOOL" ] && [ "$PREV_HASH" = "$INPUT_HASH" ] && [ "$PREV_COUNT" -ge "$HARD_THRESHOLD" ]; then
   jq -n --arg reason "BLOCKED: '${TOOL}' with this input has failed ${PREV_COUNT} times. Last error: ${PREV_ERROR}. You MUST use a completely different approach." \
-    '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":$reason}}'
+    '{"hookSpecificOutput":{"permissionDecision":"deny","reason":$reason}}'
 else
   echo '{"continue":true}'
 fi

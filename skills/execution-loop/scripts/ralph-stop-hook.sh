@@ -5,7 +5,7 @@
 # Outputs JSON via jq (no string interpolation — injection-safe).
 #
 # 4 Safety invariants (NEVER block):
-#   1. authentication errors (401/403 in stop_reason)
+#   1. authentication errors (401/403 detected in last_assistant_message)
 #   2. cancel signal (with TTL)
 #   3. stale state (>2 hours idle)
 #   4. max iterations reached

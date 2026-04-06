@@ -38,7 +38,7 @@ triggers:
 | 3.2 | Compaction memory extraction | [script] | 压缩前抢救知识 |
 | 3.3 | Three-gate memory consolidation | [design] | 跨 session 记忆合并 |
 | 3.4 | Token budget allocation | [design] | 注入预算感知指令 |
-| 3.5 | Context budget estimation | [script] | 估算 context 使用率 |
+| 3.5 | Context token count | [script] | 从 transcript 提取 input_tokens 数（不含百分比） |
 | 3.6 | Filesystem as working memory | [design] | 磁盘文件作活跃工作状态 |
 | 3.7 | Compaction quality audit | [design] | 验证关键信息存活 |
 

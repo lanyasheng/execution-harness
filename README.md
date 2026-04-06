@@ -36,7 +36,9 @@ git clone https://github.com/lanyasheng/execution-harness.git && cd execution-ha
 Then add hooks to `~/.claude/settings.json`:
 
 <details>
-<summary><b>Recommended settings.json (click to expand)</b></summary>
+<summary><b>Minimal settings.json (click to expand)</b></summary>
+
+> This is a starter subset. See each axis's SKILL.md for the full hook list including bracket-hook, denial-tracker, compaction-extract, etc.
 
 ```json
 {
@@ -44,7 +46,8 @@ Then add hooks to `~/.claude/settings.json`:
     "Stop": [{
       "hooks": [
         {"type": "command", "command": "bash /path/to/skills/execution-loop/scripts/ralph-stop-hook.sh"},
-        {"type": "command", "command": "bash /path/to/skills/execution-loop/scripts/doubt-gate.sh"}
+        {"type": "command", "command": "bash /path/to/skills/execution-loop/scripts/doubt-gate.sh"},
+        {"type": "command", "command": "bash /path/to/skills/quality-verification/scripts/bracket-hook.sh", "async": true}
       ]
     }],
     "PostToolUseFailure": [{
@@ -59,7 +62,7 @@ Then add hooks to `~/.claude/settings.json`:
       ]
     }],
     "PostToolUse": [{
-      "matcher": "Write|Edit",
+      "matcher": "Write|Edit|MultiEdit",
       "hooks": [
         {"type": "command", "command": "bash /path/to/skills/quality-verification/scripts/post-edit-check.sh", "async": true}
       ]

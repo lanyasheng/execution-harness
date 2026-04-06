@@ -37,7 +37,7 @@ triggers:
 |---|---------|------|-------------|
 | 6.1 | Post-edit diagnostics | [script] | 编辑后跑 linter/type checker |
 | 6.2 | Hook runtime profiles | [config] | 环境级 profile 切换 |
-| 6.3 | Hook pair bracket | [script] | per-turn 时间/工具调用测量 |
+| 6.3 | Session turn metrics | [script] | per-turn 时间/turn 计数测量 |
 | 6.4 | Test-before-commit gate | [script] | git commit 前跑测试 |
 | 6.5 | Atomic state writes | [design] | write-to-temp-then-rename |
 | 6.6 | Session state hygiene | [design] | 定期清理 stale state |
@@ -46,6 +46,6 @@ triggers:
 
 | 脚本 | Hook 类型 | 功能 |
 |------|----------|------|
-| `post-edit-check.sh` | PostToolUse (Write\|Edit) | 编辑后 linter |
+| `post-edit-check.sh` | PostToolUse (Write\|Edit\|MultiEdit) | 编辑后 linter |
 | `bracket-hook.sh` | Stop | 记录 per-turn 指标 |
 | `test-before-commit.sh` | PreToolUse (Bash) | commit 前跑测试 |
