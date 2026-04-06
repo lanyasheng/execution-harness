@@ -30,26 +30,26 @@ cd execution-harness
   "hooks": {
     "Stop": [{
       "hooks": [
-        {"type": "command", "command": "bash /path/to/skills/execution-loop/scripts/ralph-stop-hook.sh"},
-        {"type": "command", "command": "bash /path/to/skills/execution-loop/scripts/doubt-gate.sh"},
-        {"type": "command", "command": "bash /path/to/skills/quality-verification/scripts/bracket-hook.sh", "async": true}
+        {"type": "command", "command": "bash /path/to/execution-loop/scripts/ralph-stop-hook.sh"},
+        {"type": "command", "command": "bash /path/to/execution-loop/scripts/doubt-gate.sh"},
+        {"type": "command", "command": "bash /path/to/quality-verification/scripts/bracket-hook.sh", "async": true}
       ]
     }],
     "PostToolUseFailure": [{
       "hooks": [
-        {"type": "command", "command": "bash /path/to/skills/tool-governance/scripts/tool-error-tracker.sh", "async": true}
+        {"type": "command", "command": "bash /path/to/tool-governance/scripts/tool-error-tracker.sh", "async": true}
       ]
     }],
     "PreToolUse": [{
       "hooks": [
-        {"type": "command", "command": "bash /path/to/skills/tool-governance/scripts/tool-error-advisor.sh"},
-        {"type": "command", "command": "bash /path/to/skills/tool-governance/scripts/tool-input-guard.sh"}
+        {"type": "command", "command": "bash /path/to/tool-governance/scripts/tool-error-advisor.sh"},
+        {"type": "command", "command": "bash /path/to/tool-governance/scripts/tool-input-guard.sh"}
       ]
     }],
     "PostToolUse": [{
       "matcher": "Write|Edit|MultiEdit",
       "hooks": [
-        {"type": "command", "command": "bash /path/to/skills/quality-verification/scripts/post-edit-check.sh", "async": true}
+        {"type": "command", "command": "bash /path/to/quality-verification/scripts/post-edit-check.sh", "async": true}
       ]
     }]
   }
@@ -59,7 +59,7 @@ cd execution-harness
 
 ```bash
 # 启动持续执行（最多 50 轮，crash 后自动恢复）
-bash skills/execution-loop/scripts/ralph-init.sh my-task 50
+bash execution-loop/scripts/ralph-init.sh my-task 50
 ```
 
 ## 解决什么问题
@@ -96,7 +96,7 @@ execution-harness/
 
 ## 38 Core Patterns
 
-### Execution Loop (7) — [SKILL.md](skills/execution-loop/SKILL.md)
+### Execution Loop (7) — [SKILL.md](execution-loop/SKILL.md)
 
 | # | Pattern | Type | 做什么 |
 |---|---------|------|--------|
@@ -108,7 +108,7 @@ execution-harness/
 | 1.6 | Headless execution control | config | `-p` 模式下的替代控制方案 |
 | 1.7 | Iteration-aware messaging | design | 按迭代阶段调整 block 消息语气 |
 
-### Tool Governance (6) — [SKILL.md](skills/tool-governance/SKILL.md)
+### Tool Governance (6) — [SKILL.md](tool-governance/SKILL.md)
 
 | # | Pattern | Type | 做什么 |
 |---|---------|------|--------|
@@ -119,7 +119,7 @@ execution-harness/
 | 2.5 | Component-scoped hooks | config | 任务级别的 hook 控制 |
 | 2.6 | Tool input guard | script | 拦截 `rm -rf /`、`curl \| sh` 等危险模式 |
 
-### Context & Memory (7) — [SKILL.md](skills/context-memory/SKILL.md)
+### Context & Memory (7) — [SKILL.md](context-memory/SKILL.md)
 
 | # | Pattern | Type | 做什么 |
 |---|---------|------|--------|
@@ -131,7 +131,7 @@ execution-harness/
 | 3.6 | Filesystem as working memory | design | 用 `.working-state/` 目录作活跃工作状态 |
 | 3.7 | Compaction quality audit | design | 压缩后验证关键信息是否存活 |
 
-### Multi-Agent Coordination (6) — [SKILL.md](skills/multi-agent/SKILL.md)
+### Multi-Agent Coordination (6) — [SKILL.md](multi-agent/SKILL.md)
 
 | # | Pattern | Type | 做什么 |
 |---|---------|------|--------|
@@ -142,7 +142,7 @@ execution-harness/
 | 4.5 | Synthesis gate | design | 协调者必须综合 worker 结果后才能委派 |
 | 4.6 | Review-execution separation | design | 实现和审查用不同 agent |
 
-### Error Recovery (6) — [SKILL.md](skills/error-recovery/SKILL.md)
+### Error Recovery (6) — [SKILL.md](error-recovery/SKILL.md)
 
 | # | Pattern | Type | 做什么 |
 |---|---------|------|--------|
@@ -153,7 +153,7 @@ execution-harness/
 | 5.5 | Graceful tool degradation | design | 首选工具不可用时的降级映射 |
 | 5.6 | Model fallback advisory | design | 3 次失败后建议升级模型 |
 
-### Quality & Verification (6) — [SKILL.md](skills/quality-verification/SKILL.md)
+### Quality & Verification (6) — [SKILL.md](quality-verification/SKILL.md)
 
 | # | Pattern | Type | 做什么 |
 |---|---------|------|--------|
@@ -190,7 +190,7 @@ execution-harness/
 ## 测试
 
 ```bash
-python3 -m pytest skills/*/tests/ -v   # 90 tests
+python3 -m pytest */tests/ -v   # 90 tests
 ```
 
 依赖：`bash`、`jq`、`python3`、`pytest`
