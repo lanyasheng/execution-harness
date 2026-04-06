@@ -2,3 +2,6 @@ web-articles/
 .improvement-memory/
 __pycache__/
 .pytest_cache/
+*-REPORT*.md
+ARTICLE-GAP-ANALYSIS.md
+task_suites/
