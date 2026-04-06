@@ -25,6 +25,8 @@
 
 ## Quick Start
 
+**前置依赖：** `bash`, `jq`（所有脚本依赖 jq 处理 JSON）
+
 ```bash
 # 推荐：一键安装
 npx skills add github:lanyasheng/execution-harness
@@ -103,7 +105,7 @@ execution-harness/
 
 ### agent-hooks — Drop-in scripts for Claude Code
 
-7 bash scripts, 37 tests. Configure in `settings.json`, forget about it.
+7 bash scripts, 37 tests (full repo: 8 scripts, 42 tests including agent-ops). Configure in `settings.json`, forget about it.
 
 | Script | Hook Type | What it does |
 |--------|----------|--------------|
@@ -133,7 +135,7 @@ Plus: [distillation methodology](skills/harness-design-patterns/references/disti
 
 8 个源码/社区项目并行分析 → 40+ 候选模式 → 去重 + 优先级排序 → 21 patterns × 3 skills。蒸馏方法论：[distillation-methodology.md](skills/harness-design-patterns/references/distillation-methodology.md)。
 
-3 轮多 agent review（功能 → 协议合规 → 事实准确），53 issues found，hook field names 全部对照 [官方文档](https://code.claude.com/docs/en/hooks)（26 hook events）验证。
+4 轮多 agent review（功能 → 协议合规 → 事实准确 → 最终审计），53 issues found，hook field names 全部对照 [官方文档](https://code.claude.com/docs/en/hooks)（27 hook events）验证。
 
 ## Positioning
 
@@ -187,7 +189,7 @@ Requires: `bash`, `jq`, `python3`, `pytest`.
 | [oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode) | Ralph persistent-mode, Cancel TTL (30s), Stale threshold (2h), Team runtime v2 |
 | [ccunpacked.dev](https://ccunpacked.dev/) | DenialTracking, AutoDream, MCP auto-healing, Memory extraction during compaction |
 | [claude-howto](https://github.com/luongnv89/claude-howto) | Prompt-type/Agent-type hooks, Hook pair bracket, Component-scoped hooks, `once: true` |
-| [Claude Code official docs](https://code.claude.com/docs/en/hooks) | 26 hook events, input/output JSON schemas, permission protocol |
+| [Claude Code official docs](https://code.claude.com/docs/en/hooks) | 27 hook events, input/output JSON schemas, permission protocol |
 | [LastWhisperDev](https://mp.weixin.qq.com/s/R9EgZlx1RnXK4L12OBQn-w) | Distillation methodology, PCA analogy, Review-Execution separation |
 | [agentic-harness-patterns-skill](https://github.com/keli-wen/agentic-harness-patterns-skill) | 6 design principles (Memory, Skills, Tools, Context, Multi-agent, Lifecycle) |
 | [plugin-doubt-gate](https://github.com/johnlindquist/plugin-doubt-gate) | Speculation detection via hedging word scan |

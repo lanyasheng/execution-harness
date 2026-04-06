@@ -44,7 +44,7 @@ parse_utc_epoch() {
 }
 
 # Read hook input
-INPUT=$(cat)
+INPUT=$(head -c 20000)
 
 # Determine session ID: prefer stdin JSON, fallback to env var
 SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // ""' 2>/dev/null)
