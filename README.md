@@ -9,7 +9,7 @@ Make Claude Code agents finish their work.
 
 Agent 改了 7 个文件中的 2 个就停了。`cargo build` 在没有 cargo 的容器里重试了 12 次。说 "this should work" 但不跑测试。限速后 tmux session 挂死。5 个 agent 同时编辑同一个文件。压缩后忘了所有设计决策。
 
-17 个即插即用的 bash hook 脚本 + 21 个设计模式，覆盖 agent 可靠性的 6 个维度。不是框架，不做模型调用——只管住执行层。
+17 个 bash 脚本（14 个 hook + 3 个 CLI 工具）+ 20 个设计模式 + 4 个配置模式 = 38 patterns，覆盖 agent 可靠性的 6 个维度。不是框架，不做模型调用——只管住执行层。
 
 ## Quick Start
 
@@ -82,13 +82,12 @@ bash execution-loop/scripts/ralph-init.sh my-task 50
 ```
 execution-harness/
 ├── principles.md                    ← 10 条设计原则
-├── skills/
-│   ├── execution-loop/              ← 让 agent 继续工作直到完成
-│   ├── tool-governance/             ← 让工具使用安全可控
-│   ├── context-memory/              ← 让知识跨压缩存活
-│   ├── multi-agent/                 ← 让多个 agent 协同而非冲突
-│   ├── error-recovery/              ← 让 agent 从故障中恢复
-│   └── quality-verification/        ← 让输出质量有保障
+├── execution-loop/                  ← 让 agent 继续工作直到完成
+├── tool-governance/                 ← 让工具使用安全可控
+├── context-memory/                  ← 让知识跨压缩存活
+├── multi-agent/                     ← 让多个 agent 协同而非冲突
+├── error-recovery/                  ← 让 agent 从故障中恢复
+├── quality-verification/            ← 让输出质量有保障
 └── shared/                          ← Session 状态布局
 ```
 

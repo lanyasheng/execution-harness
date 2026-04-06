@@ -29,7 +29,7 @@ settings.json 中配置 Stop hook（每 N 轮触发一次快照）：
     "Stop": [{
       "hooks": [{
         "type": "command",
-        "command": "bash /path/to/skills/context-memory/scripts/compaction-extract.sh",
+        "command": "bash /path/to/context-memory/scripts/compaction-extract.sh",
         "async": true
       }]
     }]

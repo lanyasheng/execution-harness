@@ -72,7 +72,7 @@ scripts/ralph-init.sh my-task-001 50
     "Stop": [{
       "hooks": [{
         "type": "command",
-        "command": "bash /path/to/execution-harness/scripts/ralph-stop-hook.sh"
+        "command": "bash /path/to/execution-loop/scripts/ralph-stop-hook.sh"
       }]
     }]
   }
