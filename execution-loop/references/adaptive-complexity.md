@@ -1,4 +1,4 @@
-# Pattern 16: Adaptive Complexity Scoring（任务复杂度自适应）
+# Pattern 1.3: Adaptive Complexity Scoring（任务复杂度自适应）
 
 ## 问题
 
@@ -18,17 +18,17 @@
 | Low | 单文件、可能需要测试更新 | Light（plan + implement） |
 | Medium | 2-5 文件、涉及跨模块修改 | Standard（plan + implement + verify） |
 | High | 5+ 文件、架构变更、新 API | Full（plan + implement + verify + review） |
-| Critical | 安全修复、数据迁移、生产变更 | Full + Agent-type 验证门禁（Pattern 1 模式 C） |
+| Critical | 安全修复、数据迁移、生产变更 | Full + Agent-type 验证门禁（Pattern 1.1 模式 C） |
 
 ### 执行模式映射
 
 | 模式 | 启用的 Pattern |
 |------|---------------|
-| Express | 仅 Pattern 6（原子写入） |
-| Light | + Pattern 3（工具错误升级） |
-| Standard | + Pattern 1（Ralph）+ Pattern 5（Context 估算） |
-| Full | + Pattern 2（Handoff）+ Pattern 11（Hook Bracket）+ Pattern 15（Post-Edit 诊断） |
-| Full+Gate | + Pattern 1 模式 C（Agent-type 验证） + Pattern 12（Scoped Hooks） |
+| Express | 仅 Pattern 6.5（原子写入） |
+| Light | + Pattern 2.1（工具错误升级） |
+| Standard | + Pattern 1.1（Ralph）+ Pattern 3.5（Context 估算） |
+| Full | + Pattern 3.1（Handoff）+ Pattern 6.3（Hook Bracket）+ Pattern 6.1（Post-Edit 诊断） |
+| Full+Gate | + Pattern 1.1 模式 C（Agent-type 验证） + Pattern 2.5（Scoped Hooks） |
 
 ## 实现
 

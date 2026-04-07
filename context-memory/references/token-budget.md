@@ -1,4 +1,4 @@
-# Pattern 20: Token Budget Per Subtask（子任务 token 预算）
+# Pattern 3.4: Token Budget Per Subtask（子任务 token 预算）
 
 ## 问题
 
@@ -52,11 +52,11 @@ fi
 | 40-60% | 提醒 agent 注意读取量 |
 | 60-80% | 注入"优先用 grep/subagent"指令 |
 | 80-95% | 注入"必须用 subagent 委托，不要直接读大文件" |
-| >= 95% | Ralph MUST 放行 stop（Pattern 1 安全阀） |
+| >= 95% | Ralph MUST 放行 stop（Pattern 1.1 安全阀） |
 
-## 与 Pattern 5（Context 估算）的关系
+## 与 Pattern 3.5（Context 估算）的关系
 
-Pattern 5 提供了底层的 context 使用量检测能力。Pattern 20 在此基础上做决策和干预——不只是"知道用了多少"，而是"根据用量调整行为"。
+Pattern 3.5 提供了底层的 context 使用量检测能力。Pattern 3.4 在此基础上做决策和干预——不只是"知道用了多少"，而是"根据用量调整行为"。
 
 ## Tradeoff
 

@@ -1,4 +1,4 @@
-# Pattern 2: Handoff 文档（上下文存活）
+# Pattern 3.1: Handoff 文档（上下文存活）
 
 ## 问题
 
@@ -45,7 +45,7 @@ sessions/<session-id>/handoffs/
   stage-1-plan.md
   stage-2-implement.md
   stage-3-verify.md
-  pre-compact.md          ← 压缩前自动抢救（见 Pattern 8）
+  pre-compact.md          ← 压缩前自动抢救（见 Pattern 3.2）
 ```
 
 ## 注入方式
@@ -58,7 +58,7 @@ sessions/<session-id>/handoffs/stage-<当前阶段>.md
 必须包含 5 个段落：Decided / Rejected / Risks / Files Modified / Remaining
 ```
 
-下一阶段的 agent 启动时，通过 UserPromptSubmit hook 或 prompt 注入最新的 handoff 文档。配合 `once: true` 标记确保只注入一次（见 Pattern 12）。
+下一阶段的 agent 启动时，通过 UserPromptSubmit hook 或 prompt 注入最新的 handoff 文档。配合 `once: true` 标记确保只注入一次（见 Pattern 2.5）。
 
 ## 为什么不依赖 Claude Code 的内置压缩
 
@@ -75,7 +75,7 @@ Handoff 文档让你显式控制保留的信息，和内置压缩互补而非替
 - 过多阶段后，累积的 handoff 内容本身成为 context 负担
 - Agent 可能不遵守写 handoff 的指令——这是概率性的，不是系统保证
 
-用 Pattern 10（记忆合并）可以部分缓解 staleness 和碎片化问题。
+用 Pattern 3.3（记忆合并）可以部分缓解 staleness 和碎片化问题。
 
 ## Claude Code 的 4 级压缩（背景知识）
 

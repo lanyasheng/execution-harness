@@ -65,4 +65,4 @@ fi
 
 ## Source
 
-LastWhisperDev 的蒸馏实践——Codex 做 review、Claude Code 做 execution 的双 agent 模式。经典的代码审查最佳实践在 agent 场景下的适配。
+本项目的蒸馏实践——Codex 做 review、Claude Code 做 execution 的双 agent 模式。经典的代码审查最佳实践在 agent 场景下的适配。

@@ -1,8 +1,8 @@
-# Pattern 13: Doubt Gate（投机检测断路器）
+# Pattern 1.2: Doubt Gate（投机检测断路器）
 
 ## 问题
 
-Agent 声称任务完成，但回答中包含投机性语言——"可能是"、"我认为"、"大概"——没有提供具体证据。这和 Pattern 9（权限否决追踪）解决的是相反的问题：Pattern 9 处理 agent 被拒绝后换表述重试，Doubt Gate 处理 agent 以不确定的态度"完成"任务。
+Agent 声称任务完成，但回答中包含投机性语言——"可能是"、"我认为"、"大概"——没有提供具体证据。这和 Pattern 2.2（权限否决追踪）解决的是相反的问题：Pattern 2.2 处理 agent 被拒绝后换表述重试，Doubt Gate 处理 agent 以不确定的态度"完成"任务。
 
 来源：`johnlindquist/plugin-doubt-gate`
 

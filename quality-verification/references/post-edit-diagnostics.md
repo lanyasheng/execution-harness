@@ -1,4 +1,4 @@
-# Pattern 15: Post-Edit Diagnostics（编辑后即时诊断）
+# Pattern 6.1: Post-Edit Diagnostics（编辑后即时诊断）
 
 ## 问题
 
@@ -39,11 +39,11 @@ case "$FILE" in
 esac
 ```
 
-## 与 Pattern 3（工具错误升级）的关系
+## 与 Pattern 2.1（工具错误升级）的关系
 
-Pattern 3 处理工具本身执行失败（`cargo build` 找不到命令）。Post-Edit Diagnostics 处理工具执行成功但产出有问题（文件写入成功但引入了类型错误）。
+Pattern 2.1 处理工具本身执行失败（`cargo build` 找不到命令）。Post-Edit Diagnostics 处理工具执行成功但产出有问题（文件写入成功但引入了类型错误）。
 
-Pattern 3 是反应式（错误发生后升级），Pattern 15 是预防式（错误扩散前捕获）。
+Pattern 2.1 是反应式（错误发生后升级），Pattern 6.1 是预防式（错误扩散前捕获）。
 
 ## Tradeoff
 

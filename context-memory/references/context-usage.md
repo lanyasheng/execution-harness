@@ -1,4 +1,4 @@
-# Pattern 5: 轻量 Context 使用量估算
+# Pattern 3.5: 轻量 Context 使用量估算
 
 ## 问题
 
@@ -35,7 +35,7 @@ fi
 ## 用途
 
 1. **Token 预算管理**：通过原始 token 数做粗略阈值判断（如 >160K 告警，基于 200K context window 假设）
-2. **Hook pair bracket 中的增量追踪**：每轮记录 token 增量（见 Pattern 11）
+2. **Hook pair bracket 中的增量追踪**：每轮记录 token 增量（见 Pattern 6.3）
 3. **外部监控**：周期性检查所有运行中 session 的 token 消耗
 
 ## 为什么不能算百分比

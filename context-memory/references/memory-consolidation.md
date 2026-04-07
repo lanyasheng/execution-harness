@@ -1,4 +1,4 @@
-# Pattern 10: 三门控记忆合并（3-Gate Consolidation）
+# Pattern 3.3: 三门控记忆合并（3-Gate Consolidation）
 
 ## 问题
 

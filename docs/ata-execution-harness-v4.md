@@ -2,9 +2,9 @@
 
 ## TL;DR
 
-Claude Code agent 经常只干一半就停、工具失败了用同样的参数重试 12 次、压缩后忘掉所有设计决策。Execution Harness 是 17 个 bash hook 脚本 + 21 个设计模式，覆盖 agent 执行可靠性的 6 个维度：执行循环、工具治理、上下文记忆、多 agent 协调、错误恢复、质量验证。全部基于 Claude Code 的 hook 协议，不做模型调用，不是框架——只管住执行层。
+Claude Code agent 经常只干一半就停、工具失败了用同样的参数重试 12 次、压缩后忘掉所有设计决策。Execution Harness 是 17 个 bash 脚本（13 个 hook + 4 个独立工具）+ 20 个设计模式 + 4 个配置模式，覆盖 agent 执行可靠性的 6 个维度：执行循环、工具治理、上下文记忆、多 agent 协调、错误恢复、质量验证。全部基于 Claude Code 的 hook 协议，不做模型调用，不是框架——只管住执行层。
 
-数字：38 core patterns，17 个可直接用的 bash 脚本，10 条设计原则，90 个测试用例，从 4 个开源项目蒸馏而来。
+数字：38 core patterns（14 个 script + 20 个 design + 4 个 config），17 个 bash 脚本，10 条设计原则，90 个测试用例，从 4 个开源项目蒸馏而来。
 
 ---
 
@@ -122,7 +122,7 @@ Pattern 5.6 Model Fallback Advisory：hook 不能切换模型。这是 Claude Co
 execution-harness/
 ├── principles.md                    10 条设计原则
 ├── execution-loop/                  让 agent 继续工作直到完成
-│   ├── SKILL.md                     7 patterns (3 script, 2 design, 1 config, 1 design)
+│   ├── SKILL.md                     7 patterns (4 script, 2 design, 1 config)
 │   ├── scripts/                     ralph-stop-hook, doubt-gate, task-completion-gate...
 │   └── references/                  每个 pattern 的深度参考
 ├── tool-governance/                 让工具使用安全可控
@@ -162,7 +162,7 @@ execution-harness/
 | 1.6 | Headless execution control | config | `-p` 模式下的替代控制方案 |
 | 1.7 | Iteration-aware messaging | design | 按迭代阶段调整 block 消息语气 |
 
-代表性脚本：`ralph-stop-hook.sh`（124 行）、`doubt-gate.sh`（43 行）、`drift-reanchor.sh`。
+代表性脚本：`ralph-stop-hook.sh`（124 行）、`doubt-gate.sh`（42 行）、`drift-reanchor.sh`。
 
 ### 3.2 Tool Governance（6 patterns）
 
@@ -708,7 +708,7 @@ bash execution-loop/scripts/ralph-cancel.sh my-task
 1. **阅读和标注**：通读 4 个源的所有文档和代码。标注每个值得提取的 pattern——criteria 是"如果不做这件事，agent 会以可预测的方式失败"。
 2. **分类**：按失败模式分为 6 轴。每个 pattern 属于且仅属于一个轴。
 3. **分级**：每个 pattern 标注为 `[script]`（可执行脚本）、`[design]`（设计指南）或 `[config]`（配置模板）。Script 类的 pattern 需要实现并测试；design 类的 pattern 提供参考文档和伪代码。
-4. **实现**：17 个 script 类 pattern 实现为 bash 脚本，每个脚本遵循 Claude Code hook 协议（stdin 读 JSON，stdout 写 JSON）。
+4. **实现**：14 个 script 类 pattern 实现为 17 个 bash 脚本（部分 pattern 含多个脚本，如 Ralph 有 stop-hook、init、cancel 三个），每个脚本遵循 Claude Code hook 协议（stdin 读 JSON，stdout 写 JSON）。
 5. **测试**：90 个 pytest 测试覆盖所有 script 类 pattern。测试验证 hook 在各种输入下的行为——正常流程、边界条件、错误处理。
 
 ### 不做什么

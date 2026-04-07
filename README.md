@@ -9,7 +9,7 @@ Make Claude Code agents finish their work.
 
 Agent 改了 7 个文件中的 2 个就停了。`cargo build` 在没有 cargo 的容器里重试了 12 次。说 "this should work" 但不跑测试。限速后 tmux session 挂死。5 个 agent 同时编辑同一个文件。压缩后忘了所有设计决策。
 
-17 个 bash 脚本（14 个 hook + 3 个 CLI 工具）+ 20 个设计模式 + 4 个配置模式 = 38 patterns，覆盖 agent 可靠性的 6 个维度。不是框架，不做模型调用——只管住执行层。
+17 个 bash 脚本（13 个 hook + 4 个独立工具）+ 20 个设计模式 + 4 个配置模式 = 38 patterns，覆盖 agent 可靠性的 6 个维度。不是框架，不做模型调用——只管住执行层。
 
 ## Quick Start
 

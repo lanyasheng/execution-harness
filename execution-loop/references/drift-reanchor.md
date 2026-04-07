@@ -14,26 +14,29 @@ Stop hook 每 N 轮（默认 10 轮）将原始任务描述重新注入对话，
 2. Stop hook 每次触发时递增 turn_count
 3. 当 `turn_count % REANCHOR_INTERVAL == 0` 时通过 additionalContext 注入原始任务提醒
 4. 注入结构化消息包含：原始任务、当前迭代数、已完成项（从 .harness-tasks.json 读取）
-5. Hook 返回 `{"decision":"allow"}` 放行用户输入，re-anchor 作为附加 context
+5. Hook 返回 `{"continue":true}` 放行，re-anchor 通过 hookSpecificOutput 注入
 
 ```bash
-# UserPromptSubmit hook
-INPUT=$(cat)
+# Stop hook — 每轮触发，每 N 轮注入 re-anchor
+INPUT=$(head -c 20000)
 SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // ""')
-RALPH="sessions/${SESSION_ID}/ralph.json"
-[ -f "$RALPH" ] || exit 0
+[ -z "$SESSION_ID" ] && echo '{"continue":true}' && exit 0
 
-ITERATION=$(jq -r '.iteration // 0' "$RALPH")
-INTERVAL=${REANCHOR_INTERVAL:-5}
-[ $(( ITERATION % INTERVAL )) -eq 0 ] || exit 0
-[ "$ITERATION" -gt 0 ] || exit 0
+STATE_FILE="sessions/${SESSION_ID}/reanchor.json"
+[ -f "$STATE_FILE" ] || { jq -n '{"turn_count":1,"original_task":""}' > "$STATE_FILE"; echo '{"continue":true}'; exit 0; }
 
-TASK=$(cat "sessions/${SESSION_ID}/original-task.md" 2>/dev/null)
-[ -z "$TASK" ] && exit 0
+TURN_COUNT=$(( $(jq -r '.turn_count // 0' "$STATE_FILE") + 1 ))
+ORIGINAL_TASK=$(jq -r '.original_task // ""' "$STATE_FILE")
+jq -n --arg task "$ORIGINAL_TASK" --argjson count "$TURN_COUNT" \
+  '{"original_task":$task,"turn_count":$count}' > "$STATE_FILE"
 
-cat <<EOF
-{"decision":"allow","hookSpecificOutput":{"additionalContext":"[RE-ANCHOR iteration ${ITERATION}] 原始任务:\n${TASK}\n\n请对照原始任务检查：你当前的工作是否仍在为原始目标服务？如果偏离了，立即回到正轨。"}}
-EOF
+INTERVAL=${REANCHOR_INTERVAL:-10}
+if [ $((TURN_COUNT % INTERVAL)) -eq 0 ] && [ -n "$ORIGINAL_TASK" ]; then
+  jq -n --arg ctx "TASK REMINDER (turn ${TURN_COUNT}): ${ORIGINAL_TASK}" \
+    '{"hookSpecificOutput":{"additionalContext":$ctx}}'
+else
+  echo '{"continue":true}'
+fi
 ```
 
 ## Tradeoffs

@@ -1,4 +1,4 @@
-# Pattern 21: Auto Model Fallback（自动模型降级/升级）
+# Pattern 5.6: Auto Model Fallback（自动模型降级/升级）
 
 ## 问题
 
@@ -89,9 +89,9 @@ Coordinator 先用 `analyzer-haiku`，失败后自动切换到 `analyzer-sonnet`
 | Sonnet | 日常编码、bug 修复、代码审查 | 中等 |
 | Opus | 复杂架构、安全分析、多文件重构 | 最高 |
 
-## 与 Pattern 16（Adaptive Complexity）的关系
+## 与 Pattern 1.3（Adaptive Complexity）的关系
 
-Pattern 16 在任务开始前根据复杂度选择执行模式。Pattern 21 在执行过程中根据失败反馈动态切换模型。两者互补：Pattern 16 做预判，Pattern 21 做运行时调整。
+Pattern 1.3 在任务开始前根据复杂度选择执行模式。Pattern 5.6 在执行过程中根据失败反馈动态切换模型。两者互补：Pattern 1.3 做预判，Pattern 5.6 做运行时调整。
 
 ## Tradeoff
 

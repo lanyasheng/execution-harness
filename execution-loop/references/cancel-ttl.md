@@ -1,4 +1,4 @@
-# Pattern 7: Cancel Signal with TTL
+# Pattern 1.1-sub: Cancel Signal with TTL
 
 ## 问题
 

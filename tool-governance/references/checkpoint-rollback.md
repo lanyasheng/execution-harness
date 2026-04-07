@@ -1,4 +1,4 @@
-# Pattern 19: Git Checkpoint + Auto Rollback（快照与回滚）
+# Pattern 2.3: Git Checkpoint + Auto Rollback（快照与回滚）
 
 ## 问题
 

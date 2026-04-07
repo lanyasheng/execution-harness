@@ -1,4 +1,4 @@
-# Pattern 4: Rate Limit 检测与恢复
+# Pattern 5.1: Rate Limit 检测与恢复
 
 ## 问题
 

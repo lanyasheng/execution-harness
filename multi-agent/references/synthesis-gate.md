@@ -57,4 +57,4 @@ claude -p --max-turns 50 \
 
 ## Source
 
-Anthropic "Building multi-agent systems" 博客的核心原则。LastWhisperDev 蒸馏实践中发现的 coordinator-as-passthrough 反模式。
+Anthropic "Building multi-agent systems" 博客的核心原则。本项目蒸馏实践中发现的 coordinator-as-passthrough 反模式。

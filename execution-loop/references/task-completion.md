@@ -6,33 +6,35 @@ Agent 在复杂多步骤任务中"觉得做完了"就停止，但实际上 check
 
 ## Solution
 
-Stop hook 读取 `.harness-tasks.json` checklist 文件，逐项检查完成状态。只要存在 `checked: false` 的条目，就 block 停止并将未完成项注入 block reason，让 agent 知道还差什么。与 Ralph 互补：Ralph 管"别停"，Task Completion 管"为什么不能停"。
+Stop hook 读取 `.harness-tasks.json` checklist 文件，逐项检查完成状态。只要存在 `done: false` 的条目，就 block 停止并将未完成项注入 block reason，让 agent 知道还差什么。与 Ralph 互补：Ralph 管"别停"，Task Completion 管"为什么不能停"。
 
 ## Implementation
 
-1. 任务启动时创建 `.harness-tasks.json`，格式为 `[{id, description, checked}]`
-2. Agent 完成子任务后通过 Bash 调用 `jq` 将对应条目设为 `checked: true`
-3. Stop hook 读取文件，过滤 `checked == false` 的条目
+1. 任务启动时创建 `.harness-tasks.json`，格式为 `{tasks: [{name, done}]}`
+2. Agent 完成子任务后通过 Bash 调用 `jq` 将对应条目设为 `done: true`
+3. Stop hook 读取文件，过滤 `done == false` 的条目
 4. 若存在未完成项，返回 `{"decision":"block","reason":"未完成：<具体条目>"}`
-5. 所有条目 checked 后，放行停止
+5. 所有条目 done 后，放行停止
 
 ```json
 // .harness-tasks.json
-[
-  {"id": 1, "description": "修改 parser.ts 支持新语法", "checked": true},
-  {"id": 2, "description": "更新测试用例", "checked": false},
-  {"id": 3, "description": "更新 README 文档", "checked": false}
-]
+{
+  "tasks": [
+    {"name": "修改 parser.ts 支持新语法", "done": true},
+    {"name": "更新测试用例", "done": false},
+    {"name": "更新 README 文档", "done": false}
+  ]
+}
 ```
 
 ```bash
 # Stop hook 核心逻辑
-TASKS=$(cat .harness-tasks.json 2>/dev/null)
-[ -z "$TASKS" ] && exit 0  # 无 checklist 则放行
+TASK_FILE=".harness-tasks.json"
+[ -f "$TASK_FILE" ] || exit 0  # 无 checklist 则放行
 
-REMAINING=$(echo "$TASKS" | jq '[.[] | select(.checked == false)] | length')
+REMAINING=$(jq '[.tasks[] | select(.done == false)] | length' "$TASK_FILE")
 if [ "$REMAINING" -gt 0 ]; then
-  ITEMS=$(echo "$TASKS" | jq -r '[.[] | select(.checked == false) | .description] | join(", ")')
+  ITEMS=$(jq -r '[.tasks[] | select(.done == false) | .name] | join(", ")' "$TASK_FILE")
   echo "{\"decision\":\"block\",\"reason\":\"未完成项: ${ITEMS}\"}"
 else
   echo '{"decision":"allow"}'
@@ -48,4 +50,4 @@ fi
 
 ## Source
 
-Claude Code Stop hook 机制 + OMC persistent-mode 的语义完成度检查思路。与 Pattern 1 (Ralph) 叠加使用。
+Claude Code Stop hook 机制 + OMC persistent-mode 的语义完成度检查思路。与 Pattern 1.1 (Ralph) 叠加使用。

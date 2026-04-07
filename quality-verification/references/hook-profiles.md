@@ -1,4 +1,4 @@
-# Pattern 18: Hook Runtime Profiles（环境级 hook 强度控制）
+# Pattern 6.2: Hook Runtime Profiles（环境级 hook 强度控制）
 
 ## 问题
 
@@ -14,8 +14,8 @@
 
 | Profile | 启用的 Pattern | 适用场景 |
 |---------|---------------|---------|
-| `minimal` | 仅 Pattern 6（原子写入）| 快速实验、探索性编码 |
-| `standard` | Pattern 1/3/5/6/7 | 日常开发 |
+| `minimal` | 仅 Pattern 6.5（原子写入）| 快速实验、探索性编码 |
+| `standard` | Pattern 1.1/2.1/3.5/6.5 | 日常开发 |
 | `strict` | 全部 Pattern | 生产变更、安全修复、正式 review |
 
 ### 细粒度控制
@@ -51,9 +51,9 @@ fi
 # ... hook 的实际逻辑 ...
 ```
 
-## 与 Pattern 16（Adaptive Complexity）的关系
+## 与 Pattern 1.3（Adaptive Complexity）的关系
 
-Pattern 16 根据任务复杂度自动选择 pattern 组合。Pattern 18 根据环境/意图手动选择 hook 强度。两者可以组合：`HARNESS_PROFILE=strict` + adaptive complexity = "strict 模式下，仍然根据任务复杂度微调具体启用哪些 pattern"。
+Pattern 1.3 根据任务复杂度自动选择 pattern 组合。Pattern 6.2 根据环境/意图手动选择 hook 强度。两者可以组合：`HARNESS_PROFILE=strict` + adaptive complexity = "strict 模式下，仍然根据任务复杂度微调具体启用哪些 pattern"。
 
 ## Tradeoff
 

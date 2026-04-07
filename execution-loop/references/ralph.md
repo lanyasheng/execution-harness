@@ -1,4 +1,4 @@
-# Pattern 1: 持续执行循环（Ralph 模式）
+# Pattern 1.1: 持续执行循环（Ralph 模式）
 
 ## 问题
 
@@ -31,7 +31,7 @@ Stop hook 在以下条件下 MUST 放行，不管 ralph 状态如何：
 
 2. **认证失败**：401/403 错误。Token 过期或权限被撤销，继续执行无意义。
 
-3. **Cancel 信号**：带 TTL 的取消文件存在且未过期（见 Pattern 7）。
+3. **Cancel 信号**：带 TTL 的取消文件存在且未过期（见 Pattern 1.1-sub: Cancel TTL）。
 
 4. **闲置超时**：2 小时无活动。防止 zombie 状态永远占用资源。OMC 使用 `STALE_STATE_THRESHOLD_MS = 7200000` 作为阈值。
 
@@ -50,7 +50,7 @@ Stop hook 在以下条件下 MUST 放行，不管 ralph 状态如何：
 }
 ```
 
-存储在 `sessions/<session-id>/ralph.json`。所有状态文件使用 write-then-rename 原子写入防止并发损坏（见 Pattern 6）。
+存储在 `sessions/<session-id>/ralph.json`。所有状态文件使用 write-then-rename 原子写入防止并发损坏（见 Pattern 6.5）。
 
 ## 初始化与 Crash 恢复
 

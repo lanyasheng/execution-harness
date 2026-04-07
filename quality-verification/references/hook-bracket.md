@@ -1,4 +1,4 @@
-# Pattern 11: Hook Pair Bracket（每轮测量框架）
+# Pattern 6.3: Hook Pair Bracket（每轮测量框架）
 
 ## 问题
 

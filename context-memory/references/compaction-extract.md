@@ -1,4 +1,4 @@
-# Pattern 8: Compaction 前记忆提取（Save Before Delete）
+# Pattern 3.2: Compaction 前记忆提取（Save Before Delete）
 
 ## 问题
 
@@ -10,7 +10,7 @@ Claude Code 的 auto-compact 在 context 接近上限时自动触发。压缩会
 
 ## 与 Handoff 文档的区别
 
-| | Handoff 文档 (Pattern 2) | Compaction 提取 (Pattern 8) |
+| | Handoff 文档 (Pattern 3.1) | Compaction 提取 (Pattern 3.2) |
 |---|---|---|
 | 触发时机 | 阶段结束时（主动） | 压缩触发时（被动） |
 | 触发者 | Agent 自行写入 | Stop hook 定期触发 |

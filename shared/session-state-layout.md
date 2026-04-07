@@ -17,7 +17,7 @@ sessions/<session-id>/
   bracket.json            ← 6.3 Hook pair bracket
   compaction-extract.json ← 3.2 Compaction extract counter
   .doubt-gate-fired       ← 1.2 Doubt gate one-shot guard
-  learnings.jsonl         ← Subagent 知识
+  .harness-tasks.json     ← 1.4 Task completion checklist
 ```
 
 ## 设计原则

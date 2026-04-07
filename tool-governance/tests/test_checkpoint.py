@@ -85,11 +85,17 @@ class TestCheckpointRollback:
         out = json.loads(stdout)
         assert out.get("continue") is True
 
-    def test_git_reset_hard_detected(self, env):
+    def test_git_reset_hard_detected(self, env, tmp_path):
         e, _ = env
+        non_git = tmp_path / "not_a_repo"
+        non_git.mkdir()
         inp = json.dumps({"tool_name": "Bash", "tool_input": {"command": "git reset --hard HEAD~1"}})
         # In a non-git dir, the destructive pattern is detected but no stash — falls through to allow
-        stdout, rc = run(e, inp)
-        assert rc == 0
-        result = json.loads(stdout)
-        assert result.get("continue") is True
+        result = subprocess.run(
+            ["bash", str(SCRIPTS_DIR / "checkpoint-rollback.sh")],
+            capture_output=True, text=True, env=e, input=inp, timeout=10,
+            cwd=str(non_git),
+        )
+        assert result.returncode == 0
+        out = json.loads(result.stdout.strip())
+        assert out.get("continue") is True

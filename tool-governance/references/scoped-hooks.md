@@ -1,4 +1,4 @@
-# Pattern 12: Component-Scoped Hooks
+# Pattern 2.5: Component-Scoped Hooks
 
 ## 问题
 

@@ -1,4 +1,4 @@
-# Pattern 17: Stale Session Daemon（死 session 回收）
+# Pattern 5.3: Stale Session Daemon（死 session 回收）
 
 ## 问题
 
@@ -17,9 +17,9 @@ Agent session 可能因为各种原因静默死亡——网络断开、进程被
 
 ## 与现有 Pattern 的关系
 
-- Pattern 1 (Ralph) 有 2 小时闲置超时，但只是停止 ralph 循环——不会提取知识
-- Pattern 8 (Compaction 提取) 在压缩前抢救知识——但只在 session 活着时工作
-- Pattern 10 (三门控合并) 处理跨 session 碎片化——但前提是 handoff 已经被写入
+- Pattern 1.1 (Ralph) 有 2 小时闲置超时，但只是停止 ralph 循环——不会提取知识
+- Pattern 3.2 (Compaction 提取) 在压缩前抢救知识——但只在 session 活着时工作
+- Pattern 3.3 (三门控合并) 处理跨 session 碎片化——但前提是 handoff 已经被写入
 
 Stale Session Daemon 填补的是"session 死亡时的知识抢救"这个空白。
 
