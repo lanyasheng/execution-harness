@@ -95,8 +95,28 @@ Agent 编辑 handlers.ts 引入类型错误。PostToolUse hook 检测到 .ts 扩
 - `context-memory` — 诊断结果写入 handoff document，跨 session 传递未修复的已知问题
 
 
-## Quick Start
+## Usage
 
 ```bash
-# TODO: Add usage examples
+# 启用 post-edit 诊断（settings.json 中配置 PostToolUse hook）
+# matcher 匹配 Write/Edit/MultiEdit，执行 post-edit-check.sh
+# post-edit-check.sh 按文件扩展名选择 linter:
+#   .ts/.tsx → tsc --noEmit
+#   .py      → ruff check + pyright
+#   .rs      → cargo check
+#   其他     → 跳过（exit 0）
+
+# 启用 commit 前测试（PreToolUse hook 拦截 git commit）
+# test-before-commit.sh 按项目类型检测测试命令:
+#   package.json → npm test
+#   Makefile     → make test
+#   pyproject.toml → pytest
+#   Cargo.toml   → cargo test
+
+# 按 profile 控制 hook 强度
+HARNESS_PROFILE=strict claude -p "deploy to production"
+HARNESS_PROFILE=minimal claude -p "fix typo in README"
+
+# 禁用单个 hook
+HARNESS_DISABLED_HOOKS=post-edit-check claude -p "quick experiment"
 ```
