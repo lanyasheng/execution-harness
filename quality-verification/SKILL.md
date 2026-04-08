@@ -49,3 +49,10 @@ triggers:
 | `post-edit-check.sh` | PostToolUse (Write\|Edit\|MultiEdit) | 编辑后 linter |
 | `bracket-hook.sh` | Stop | 记录 per-turn 指标 |
 | `test-before-commit.sh` | PreToolUse (Bash) | commit 前跑测试 |
+
+
+## Quick Start
+
+```bash
+# TODO: Add usage examples
+```
