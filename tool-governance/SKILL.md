@@ -135,6 +135,58 @@ cargo build 反复失败（cargo 未安装）：
 | `denials.json` | `.claude/denials.json` | 阻止记录：被 block 的工具调用、阻止原因、触发阈值、时间戳 |
 | checkpoint stash entries | `git stash list` | 破坏性命令前由 checkpoint-rollback.sh 自动创建的 git stash 条目，命名格式 `harness-checkpoint-<timestamp>` |
 
+## Usage
+
+在 `.claude/settings.json` 中配置 hook：
+
+```jsonc
+{
+  "hooks": {
+    // 工具重试断路器（Pattern 2.1）+ 否决追踪（Pattern 2.2）
+    "PreToolUse": [
+      {
+        "matcher": { "tool_name": "Bash|Write|Edit" },
+        "hooks": [{
+          "type": "command",
+          "command": "bash tool-governance-pre.sh"
+        }]
+      }
+    ],
+    // 工具错误追踪（Pattern 2.3）+ 破坏性命令备份（Pattern 2.4）
+    "PostToolUse": [
+      {
+        "hooks": [{
+          "type": "command",
+          "command": "bash tool-governance-post.sh"
+        }]
+      }
+    ]
+  }
+}
+```
+
+Hook 输入/输出格式：
+
+PreToolUse hook 收到 stdin JSON：
+```json
+{"tool_name": "Bash", "tool_input": {"command": "rm -rf /tmp/build"}}
+```
+
+断路器触发时输出（deny + 原因）：
+```json
+{"decision": "deny", "hookSpecificOutput": {"reasonForBlocking": "[TOOL-GOV] Bash 连续失败 3 次，同一命令模式。请换一种方法或检查前提条件。"}}
+```
+
+updatedInput 修改工具参数（如加 --dry-run）：
+```json
+{"decision": "allow", "hookSpecificOutput": {"updatedInput": {"command": "rm -rf /tmp/build --dry-run"}}}
+```
+
+additionalContext 注入建议：
+```json
+{"decision": "allow", "hookSpecificOutput": {"additionalContext": "[TOOL-GOV] 检测到破坏性命令 rm -rf，已创建 git stash checkpoint harness-checkpoint-1710489600"}}
+```
+
 ## Related
 
 | Skill | 关系 |

@@ -149,6 +149,59 @@ Agent 改完全部 7 个 → 停 →
 | Doubt gate 守卫文件 | `$TMPDIR/doubt-gate-<session-id>` | 防止 doubt gate 同一轮重复触发。临时文件，触发后创建，放行后删除 |
 | 任务清单 | `.harness-tasks.json` | 任务 checklist，格式 `{tasks: [{name, done}]}`。agent 完成子任务后标记 `done: true` |
 
+## Usage
+
+在 `.claude/settings.json` 中配置 Stop hook：
+
+```jsonc
+{
+  "hooks": {
+    "Stop": [
+      // Ralph 持续执行（Pattern 1.1）
+      {
+        "hooks": [{
+          "type": "command",
+          "command": "bash ralph-stop-hook.sh"
+        }]
+      },
+      // Doubt gate（Pattern 1.2）
+      {
+        "hooks": [{
+          "type": "command",
+          "command": "bash doubt-gate.sh"
+        }]
+      },
+      // Task completion（Pattern 1.4）
+      {
+        "hooks": [{
+          "type": "command",
+          "command": "bash task-completion-gate.sh"
+        }]
+      }
+    ]
+  }
+}
+```
+
+初始化和取消 Ralph：
+```bash
+# 启动持续执行（50 轮上限）
+bash ralph-init.sh api-migration 50
+
+# 取消持续执行
+bash ralph-cancel.sh api-migration
+```
+
+Hook 输出格式（ralph-stop-hook.sh stdout）：
+```json
+{"decision": "block", "hookSpecificOutput": {"reasonForBlocking": "[RALPH 3/50] 检查任务清单，标记已完成项，继续下一项。"}}
+```
+
+安全阀在 block 之前检查，确保不会阻止必要的停止：
+```json
+{"decision": "allow", "hookSpecificOutput": {"reasonForAllowing": "context >= 95%, 必须放行避免溢出"}}
+```
+
 ## Related
 
 | Skill | 关系 |

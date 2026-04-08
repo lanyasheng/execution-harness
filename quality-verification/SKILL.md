@@ -73,12 +73,35 @@ PreToolUse hook 拦截 `git commit` 命令，在 commit 执行前自动跑项目
 要 git commit？→ PreToolUse hook 触发 `test-before-commit.sh`，拦截 Bash 中的 `git commit` 命令，跑完整测试套件。测试失败则 deny commit 并展示失败用例，agent 修完再提交。测试通过才放行。
 
 <example>
-Agent 编辑 handlers.ts 引入类型错误。PostToolUse hook 检测到 .ts 扩展名，跑 tsc --noEmit，输出 TS2345 错误，通过 additionalContext 注入。Agent 在同一个 turn 内看到错误并修复——类型错误没有传播到后续文件。
+场景: Post-edit diagnostics 即时捕获类型错误
+触发: Agent 编辑 handlers.ts（PostToolUse hook 匹配 .ts 扩展名）
+执行: post-edit-check.sh 跑 `tsc --noEmit`
+输出: TS2345 错误通过 additionalContext 注入当前 turn
+结果: Agent 同 turn 修复类型错误，错误没有传播到后续文件
+</example>
+
+<example>
+场景: Test-before-commit 拦截 broken commit
+触发: Agent 执行 `git commit -m "add user endpoint"`（PreToolUse hook 匹配 Bash 中的 git commit）
+执行: test-before-commit.sh 检测到 package.json，跑 `npm test`
+结果: 2 个测试失败，hook 输出 deny + 失败用例，Agent 先修 bug 再提交
 </example>
 
 <anti-example>
-对 README.md 编辑跑 post-edit diagnostics。.md 不在扩展名映射表中，没有 linter 可跑，每次空跑浪费时间。post-edit-check.sh 按扩展名过滤，无映射的文件 exit 0。
+错误: 对 README.md 编辑跑 post-edit diagnostics
+原因: .md 不在扩展名映射表中，没有 linter 可跑
+处理: post-edit-check.sh 按扩展名过滤，无映射的文件 exit 0（不空跑）
 </anti-example>
+
+## Failure Modes
+
+| 场景 | 处理 |
+|------|------|
+| Linter 自身 crash 或超时 | post-edit-check.sh 设 `timeout 30s` 执行 linter。超时或非零退出 → exit 0（不阻塞 agent），记录到 stderr |
+| 找不到测试命令（4 种检测全部 miss） | test-before-commit.sh 无法检测到 package.json/Makefile/pyproject.toml/Cargo.toml → 跳过测试，allow commit，注入 warning "未检测到测试框架" |
+| 测试运行时间过长 | 设 `timeout 300s`（5 分钟），超时 → deny commit + 注入 "测试超时，请检查是否有死循环或外部依赖" |
+| bracket-hook.sh 无法读取 transcript | transcript 路径不可用或文件不存在 → 跳过指标记录，不影响 agent 执行 |
+| 多个 PostToolUse hook 冲突 | Claude Code 按 settings.json 中的顺序依次执行，additionalContext 会 concatenate。post-edit-check 应排在 tool-governance 的 error-tracker 之前 |
 
 ## Output
 
@@ -97,26 +120,51 @@ Agent 编辑 handlers.ts 引入类型错误。PostToolUse hook 检测到 .ts 扩
 
 ## Usage
 
+在 `.claude/settings.json` 中配置 hook：
+
+```jsonc
+{
+  "hooks": {
+    // Post-edit 诊断：编辑后立即跑 linter
+    "PostToolUse": [
+      {
+        "matcher": { "tool_name": "Write|Edit|MultiEdit" },
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash post-edit-check.sh \"$TOOL_INPUT_FILE_PATH\""
+          }
+        ]
+      }
+    ],
+    // Commit 前测试：拦截 git commit，测试不通过则 deny
+    "PreToolUse": [
+      {
+        "matcher": { "tool_name": "Bash", "input_contains": "git commit" },
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash test-before-commit.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+`post-edit-check.sh` 按扩展名选 linter：`.ts` → `tsc --noEmit`，`.py` → `ruff check + pyright`，`.rs` → `cargo check`，其他 → exit 0。
+
+`test-before-commit.sh` 按项目类型检测：`package.json` → `npm test`，`Makefile` → `make test`，`pyproject.toml` → `pytest`，`Cargo.toml` → `cargo test`。
+
+Hook 输出格式（post-edit-check.sh stdout）：
+```json
+{"decision": "allow", "hookSpecificOutput": {"additionalContext": "[POST-EDIT] tsc error TS2345: Argument of type 'string' is not assignable to parameter of type 'number' at handlers.ts:42"}}
+```
+
+按 profile 控制强度：
 ```bash
-# 启用 post-edit 诊断（settings.json 中配置 PostToolUse hook）
-# matcher 匹配 Write/Edit/MultiEdit，执行 post-edit-check.sh
-# post-edit-check.sh 按文件扩展名选择 linter:
-#   .ts/.tsx → tsc --noEmit
-#   .py      → ruff check + pyright
-#   .rs      → cargo check
-#   其他     → 跳过（exit 0）
-
-# 启用 commit 前测试（PreToolUse hook 拦截 git commit）
-# test-before-commit.sh 按项目类型检测测试命令:
-#   package.json → npm test
-#   Makefile     → make test
-#   pyproject.toml → pytest
-#   Cargo.toml   → cargo test
-
-# 按 profile 控制 hook 强度
-HARNESS_PROFILE=strict claude -p "deploy to production"
-HARNESS_PROFILE=minimal claude -p "fix typo in README"
-
-# 禁用单个 hook
-HARNESS_DISABLED_HOOKS=post-edit-check claude -p "quick experiment"
+HARNESS_PROFILE=strict claude -p "deploy to production"   # 全部 hook
+HARNESS_PROFILE=minimal claude -p "fix typo in README"     # 仅原子写入
+HARNESS_DISABLED_HOOKS=post-edit-check claude -p "quick experiment"  # 禁用指定 hook
 ```
