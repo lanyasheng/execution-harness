@@ -11,6 +11,7 @@ triggers:
   - session metrics
   - quality gate
   - hook profile
+author: OpenClaw Team
 ---
 
 # Quality & Verification
