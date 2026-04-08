@@ -11,6 +11,7 @@ triggers:
   - token budget
   - memory consolidation
   - context estimation
+author: OpenClaw Team
 ---
 
 # Context & Memory
@@ -28,72 +29,72 @@ triggers:
 - Agent 提前停止 → 用 `execution-loop`
 - 多 agent 协调 → 用 `multi-agent`
 
-MUST 在每个阶段边界写 handoff 文件，否则 compact 后决策记忆全部丢失，后续阶段会重复讨论已否决的方案。
-
-不要依赖 context 窗口本身保留决策记录，而是在阶段结束时把 Decided/Rejected/Risks/Files/Remaining 写入磁盘 handoff 文件。
-
-如果不确定当前是否处于阶段边界，询问用户确认，或检查任务清单中是否有阶段标记。
-
 ---
 
 ## Patterns
 
-| # | Pattern | Type | Description |
-|---|---------|------|-------------|
-| 3.1 | Handoff documents | [design] | 阶段边界写 Decided/Rejected/Remaining |
-| 3.2 | Compaction memory extraction | [script] | 压缩前抢救知识 |
-| 3.3 | Three-gate memory consolidation | [design] | 跨 session 记忆合并 |
-| 3.4 | Token budget allocation | [design] | 注入预算感知指令 |
-| 3.5 | Context token count | [script] | 从 transcript 提取 input_tokens 数（不含百分比） |
-| 3.6 | Filesystem as working memory | [design] | 磁盘文件作活跃工作状态 |
-| 3.7 | Compaction quality audit | [design] | 验证关键信息存活 |
-| 3.8 | Auto-compact circuit breaker | [design] | 压缩连续失败 3 次停止尝试 |
+### 3.1 Handoff 文档 [design]
+
+阶段结束或压缩前，将 Decided/Rejected/Risks/Files/Remaining 五段写入磁盘。压缩摘要由 LLM 决定保留什么，handoff 由你决定——信息在磁盘上，任何级别的 compact 都不会丢失。阶段边界不确定时，检查任务清单阶段标记或直接询问用户。 → [详见](references/handoff-documents.md)
+
+### 3.2 Compaction 前记忆提取 [script]
+
+Claude Code 没有 PreCompact hook。通过 Stop hook 每 N 轮定期快照关键决策到磁盘，作为预防性知识保存。和 handoff 互补：handoff 是计划内的阶段传递，compaction 提取是应急的自动抢救。 → [详见](references/compaction-extract.md)
+
+### 3.3 三门控记忆合并 [design]
+
+跨 session 积累的 handoff 和记忆文件会碎片化、重复、矛盾。三门控（Time >= 24h → Session >= 5 → FileLock）按计算成本从低到高排列，任一失败即跳过。通过门控后按时间排序合并 Decided/Rejected，后来的决策覆盖早期的。 → [详见](references/memory-consolidation.md)
+
+### 3.4 Token 预算分配 [design]
+
+在 UserPromptSubmit hook 中估算 context 使用量，按阈值梯度注入行为指令：< 40% 自由读取，60-80% 优先 grep/subagent，> 80% 禁止直接读大文件。前半段消耗过多 context 导致后半段被迫压缩是常见失败模式，预算感知把干预前移。 → [详见](references/token-budget.md)
+
+### 3.5 Context Token 估算 [script]
+
+从 transcript JSONL 尾行提取 `usage.input_tokens`。注意 transcript 不暴露 `context_window_size`（该字段仅通过 statusLine stdin pipe 提供给 HUD），因此 hook 脚本只能拿到原始 token 数，无法算百分比。阈值判断基于 200K window 假设做粗估。 → [详见](references/context-usage.md)
+
+### 3.6 文件系统作工作记忆 [design]
+
+用 `.working-state/` 目录存放 `current-plan.md`（当前计划，随时覆写）和 `decisions.jsonl`（决策日志，append-only）。compact 或 crash 后 agent 通过读取这两个文件恢复状态，避免丢失"为什么选方案 B 而不是方案 A"的推理链。需要在 prompt 中明确要求 agent 写入这些文件。 → [详见](references/filesystem-working-memory.md)
+
+### 3.7 Compaction 质量审计 [design]
+
+compact 后对照 `.working-state/decisions.jsonl` 的最近 N 条决策检查 compact summary 中是否存活。发现遗失则自动将缺失决策注入 context。关键词匹配是粗糙近似——compact 可能用同义词表达同一决策，但漏检的代价（方向倒退）远大于误检的代价（多注入几条信息）。 → [详见](references/compaction-quality-audit.md)
+
+### 3.8 Auto-Compact 断路器 [design]
+
+连续 3 次 auto-compact 失败后停止尝试（`MAX_CONSECUTIVE_AUTOCOMPACT_FAILURES = 3`），等待 Reactive Compact（API 413 触发）兜底。Claude Code 曾有 1,279 个 session 出现 50+ 次连续 compact 失败，浪费约 250K API 调用/天。如果你的 hook 依赖 compact 事件，需要处理 circuit breaker 跳过的情况。 → [详见](references/auto-compact-circuit-breaker.md)
 
 ## Scripts
 
 | 脚本 | 用途 |
 |------|------|
-| `context-usage.sh <transcript>` | 估算 context 使用率 |
-| `compaction-extract.sh` | 提取关键决策到 handoff |
+| `context-usage.sh <transcript>` | 从 transcript 尾行提取 input_tokens（原始数，非百分比） |
+| `compaction-extract.sh` | Stop hook 定期触发，提取关键决策到 handoff |
 
 ## Workflow
 
 ```
-1. 检测阶段边界 — 任务清单阶段完成、用户明确切换方向、或 execution-loop 发出阶段信号
-       ↓
-2. 写 handoff 文件 — 包含 Decided / Rejected / Risks / Files / Remaining 五个区块
-       ↓
-3. 监控 context 使用率 — 用 context-usage.sh 估算当前 token 占比，>70% 进入预警
-       ↓
-4. 压缩前知识抢救 — 用 compaction-extract.sh 把关键决策、否决理由、文件清单提取到 compaction-extract.json
-       ↓
-5. 压缩后审计 — 检查 handoff 文件和 extract 是否完整，关键信息是否可从磁盘恢复
+阶段结束？
+  → 写 handoff（Decided/Rejected/Risks/Files/Remaining 五段，缺一不可）
+  → 不确定是否阶段边界？查任务清单或问用户
+
+Context > 80%？
+  → 运行 compaction-extract.sh 抢救关键决策到磁盘
+  → 注入预算指令：禁止读大文件，委托 subagent
+
+Compact 刚发生？
+  → 审计存活：对照 decisions.jsonl 检查 compact summary
+  → 发现遗失 → 自动注入缺失决策
+  → 连续失败 3 次 → circuit breaker 生效，等 Reactive Compact 兜底
 ```
 
 <example>
-场景: 20 轮 Redis 缓存方案讨论，最终选 Redis Cluster 弃用 Codis
-第 1-15 轮: 讨论 Redis Sentinel vs Cluster vs Codis，对比延迟/运维成本/数据分片
-第 16 轮: 决定用 Redis Cluster，否决 Codis（原因：社区停更、分片策略不透明）
-第 17 轮: 检测到阶段边界，写 handoff 到 sessions/xxx/handoffs/stage-2.md
-
-handoff 内容:
-- Decided: Redis Cluster，6 节点 3 主 3 从
-- Rejected: Codis（社区停更、Proxy 层额外延迟 2ms）、Sentinel（不支持数据分片）
-- Risks: Cluster 在大 key 场景下 rebalance 耗时长
-- Files: infra/redis-cluster.yaml, config/redis.conf
-- Remaining: 压测验证、故障切换演练
-
-第 20 轮: 触发 Full Compact，context 被截断
-Compact 后: agent 读取 stage-2.md，立即恢复所有决策上下文，不会重新提议 Codis
+20 轮 Redis 方案讨论。第 16 轮定方案：Redis Cluster 6 节点，否决 Codis（社区停更、Proxy 延迟 +2ms）和 Sentinel（不支持分片）。第 17 轮写 handoff 到 sessions/xxx/handoffs/stage-2.md。第 20 轮 Full Compact 截断 context。Compact 后 agent 读 stage-2.md，恢复全部决策，不会重提 Codis。
 </example>
 
 <anti-example>
-场景: 同样 20 轮 Redis 讨论，但没有写 handoff
-第 16 轮决定用 Redis Cluster，否决 Codis，决策只存在于 context 窗口
-第 20 轮触发 Full Compact，context 被截断到最近 5 轮
-Compact 后: agent 丢失了 Codis 被否决的原因，重新提议"要不要考虑 Codis？"
-用户不得不再花 3 轮重复解释为什么不用 Codis
-结果: 浪费 token、用户体验差、决策质量下降
+同样 20 轮讨论，没写 handoff。第 20 轮 Compact 后 agent 丢失 Codis 被否决的原因，重新提议"考虑 Codis？"。用户花 3 轮重复解释——浪费 token，决策质量倒退。
 </anti-example>
 
 ## Output
