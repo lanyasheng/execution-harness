@@ -70,6 +70,22 @@ fi
 - **Con**: Recovery 逻辑本身可能误判（把有意保留的状态当残留清理）
 - **Con**: 跨平台时间计算（macOS date vs GNU date）需要适配
 
+## Claude Code 内部的 Crash Recovery 实现
+
+Claude Code 源码中的 `conversationRecovery.ts` 提供了三层恢复：
+
+1. **`detectTurnInterruption()`** — 分类 session 最后状态：正常结束、mid-turn 中断、tool call 未完成、parallel tool 部分完成。根据分类注入不同的 synthetic "Continue" 消息。
+
+2. **`filterUnresolvedToolUses()`** — 清理残留的未完成 tool_use：找到没有对应 tool_result 的 tool_use block，移除或补上 placeholder result，防止 API 返回 400。
+
+3. **`recoverOrphanedParallelToolResults()`** — 处理并行工具的残留：多个工具并行执行时如果中途 crash，部分 tool 有 result、部分没有。把有 result 的保留，没 result 的补 placeholder。
+
+这些函数解决的核心问题是：**crash 后 session 的消息链不满足 API 不变量**（每个 tool_use 必须有对应 tool_result）。如果直接 resume，API 会拒绝。
+
+### 对 hook 开发者的启示
+
+如果你写了 crash recovery hook（Pattern 5.2），不需要重复 Claude Code 已有的消息链修复——它在 `--resume` 时自动做。你的 hook 应该聚焦在 Claude Code 管不到的东西：残留 ralph.json、过期 lock 文件、.working-state/ 中的中间产物。
+
 ## Source
 
-OMC persistent-mode 的 stale state detection（`STALE_STATE_THRESHOLD_MS = 7200000`）。Ralph init 脚本的 crash resume 逻辑。
+Claude Code 源码 `conversationRecovery.ts`。OMC persistent-mode 的 stale state detection（`STALE_STATE_THRESHOLD_MS = 7200000`）。Ralph init 脚本的 crash resume 逻辑。

@@ -64,6 +64,19 @@ jq --arg id "$TASK_ID" --arg result "$RESULT_FILE" \
 - **Con**: Lockfile 竞争在高并发下效率低（>10 agent 可能需要更好的方案）
 - **Con**: 没有 watch/notify 机制，只能轮询
 
+## Claude Code Swarm 的邮箱 IPC 实现
+
+Claude Code 的 Swarm 模式（~6,800 行，30 文件）使用 file-based mailbox：
+
+- **路径**: `~/.claude/teams/{team-name}/inboxes/{agent-name}.json`
+- **并发控制**: lockfile + 指数退避（10 次重试，5-100ms）
+- **消息类型**: 10 种，包括 `permission_request/response`、`shutdown_request`、`plan_approval_request`
+- **后端检测优先级**: tmux > iTerm2 > in-process（`backends/registry.ts`）
+- **tmux 实现**: PID-scoped sockets（`claude-swarm-{pid}`），每个 agent 一个 pane
+- **in-process fallback**: 同一 Node.js 进程内跑多个 query loop
+
+与本 Pattern 的关系：Claude Code 的实现和我们的 `tasks.json` + lockfile 方案思路一致。但它用了 per-agent inbox（每个 agent 一个 JSON 文件）而不是共享的 tasks.json。Per-agent inbox 在高并发下锁竞争更少——每个 agent 只写自己的 inbox，读别人的 inbox 不需要锁。
+
 ## Source
 
-OMC Swarm 模式的 file-based mailbox 机制。Claude Code Coordinator/Swarm 的 task list 共享方式。
+Claude Code 源码 swarm 模块。OMC Swarm 模式的 file-based mailbox 机制。

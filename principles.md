@@ -43,3 +43,17 @@ Write decisions to disk in structured formats that survive compaction. Don't rel
 ## M10: Honest Limitation Labeling
 
 When a mechanism cannot be implemented reliably, say so with a "NOT IMPLEMENTED" or "ADVISORY ONLY" label. "Silently broken" is worse than "honestly absent."
+
+---
+
+## Hook Protocol: Multi-Hook Aggregation Rules
+
+When multiple hooks respond to the same event, Claude Code aggregates their outputs:
+
+| Output field | Aggregation rule | Example |
+|---|---|---|
+| `permissionDecision` | **Most restrictive wins** — any single `deny` overrides all `allow` | Hook A: allow, Hook B: deny → deny |
+| `updatedInput` | **Last one wins** — hooks execute in settings.json order | Hook A: adds `--dry-run`, Hook B: adds `--timeout 30` → only `--timeout 30` survives |
+| `additionalContext` | **Concatenate** — all hooks' context messages are joined | Hook A: "check deps", Hook B: "watch memory" → agent sees both |
+
+Source: Claude Code source, `utils/hooks.ts` aggregation logic.
