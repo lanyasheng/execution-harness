@@ -33,14 +33,29 @@ triggers:
 
 ## Patterns
 
-| # | Pattern | Type | Description |
-|---|---------|------|-------------|
-| 6.1 | Post-edit diagnostics | [script] | 编辑后跑 linter/type checker |
-| 6.2 | Hook runtime profiles | [config] | 环境级 profile 切换 |
-| 6.3 | Session turn metrics | [script] | per-turn 时间/turn 计数测量 |
-| 6.4 | Test-before-commit gate | [script] | git commit 前跑测试 |
-| 6.5 | Atomic state writes | [design] | write-to-temp-then-rename |
-| 6.6 | Session state hygiene | [design] | 定期清理 stale state |
+### 6.1 Post-Edit Diagnostics `[script]`
+
+PostToolUse hook 在每次 Write/Edit 后立即跑 linter 或 type checker，通过 `additionalContext` 把错误注入当前 turn。这是 shift-left 策略——在错误扩散前秒级捕获，避免 agent 在类型错误的基础上继续编辑更多文件，导致级联放大。诊断工具按扩展名映射：`.ts` → tsc, `.py` → ruff/pyright, `.rs` → cargo check；扩展名不在映射表中的文件直接跳过，不空跑。→ [详见](references/post-edit-diagnostics.md)
+
+### 6.2 Hook Runtime Profiles `[config]`
+
+通过 `HARNESS_PROFILE` 环境变量控制 hook 行为强度，无需改 settings.json。三档：`minimal`（仅原子写入，快速实验用）、`standard`（日常开发）、`strict`（全部 pattern，生产变更和安全修复用）。还支持 `HARNESS_DISABLED_HOOKS` 按名字禁用单个 hook，粒度更细。→ [详见](references/hook-profiles.md)
+
+### 6.3 Session Turn Metrics `[script]`
+
+UserPromptSubmit + Stop 两个 hook 构成测量"括号"，在每轮交互前后采集时间戳和 context token 数。轮次结束时计算耗时和 token 增量，写入 `bracket.json` 供外部监控读取。只测量和记录，不阻止任何操作——与 ralph 的 Stop hook 叠加时，bracket 在前记录数据，ralph 在后决定是否 block。→ [详见](references/hook-bracket.md)
+
+### 6.4 Test-Before-Commit Gate `[script]`
+
+PreToolUse hook 拦截 `git commit` 命令，在 commit 执行前自动跑项目测试套件（按 package.json / Makefile / pyproject.toml / Cargo.toml 优先级检测测试命令）。测试失败时 deny commit 并把失败输出注入 context，agent 先修 bug 再提交。测试通过才放行，防止 broken commit 进入历史。→ [详见](references/test-before-commit.md)
+
+### 6.5 Atomic State Writes `[design]`
+
+所有状态文件（ralph.json、cancel.json、tool-errors.json 等）先写到 PID+时间戳命名的临时文件，再 `mv` 原子替换。POSIX 上 rename 是原子操作，读者要么看到旧版本要么看到新版本，不会读到半写的 JSON。多进程并发写入时每个进程写各自的临时文件，互不干扰。→ [详见](references/atomic-writes.md)
+
+### 6.6 Session State Hygiene `[design]`
+
+定期清理 4 类残留状态：超过 24h 仍 active 的 stale ralph.json、超过 30min 的 orphaned lock、只含 `.recovery-checked` 的空 session 目录、目录已删除但 git worktree list 中仍存在的 stale worktree 引用。支持 dry-run 预览，推荐每 4 小时或新 session 启动前运行。不清理的后果是 crash recovery 误识别 stale 状态为可恢复。→ [详见](references/session-hygiene.md)
 
 ## Scripts
 
@@ -50,48 +65,18 @@ triggers:
 | `bracket-hook.sh` | Stop | 记录 per-turn 指标 |
 | `test-before-commit.sh` | PreToolUse (Bash) | commit 前跑测试 |
 
-
-## Quick Start
-
-```bash
-# TODO: Add usage examples
-```
-
 ## Workflow
 
-1. Agent 编辑文件 → PostToolUse hook 触发（Write/Edit/MultiEdit）
-2. `post-edit-check.sh` 检测文件类型（`.ts`/`.tsx` → tsc, `.py` → ruff, `.sh` → shellcheck）
-3. 跑对应 linter/type checker，将错误通过 `additionalContext` 注入上下文
-4. Agent 立即看到诊断错误，当场修复
+文件被编辑？→ PostToolUse hook 触发 `post-edit-check.sh`，按扩展名选择 linter（`.ts` → tsc, `.py` → ruff, `.sh` → shellcheck），将诊断错误通过 `additionalContext` 注入当前 turn，agent 当场修复。编辑后立即跑诊断——拖到 commit 时再查，类型错误已经在错误基础上级联了好几个文件。扩展名不在映射表中的文件（如 `.md`）直接跳过。
 
-提交时：
-
-1. Agent 执行 `git commit` → PreToolUse (Bash) hook 拦截
-2. `test-before-commit.sh` 识别到 git commit 命令，跑测试套件
-3. 测试失败 → block commit，agent 看到失败输出后修复再提交
-
-MUST 在编辑后立即跑诊断并注入错误上下文，否则 agent 会带着类型错误继续往下写，越积越多。
-
-不要等到 commit 时才跑 linter——而是每次编辑后即时检查，commit 前跑完整测试套件。
-
-如果不确定某个文件类型是否需要 post-edit 检查，看 `post-edit-check.sh` 里的扩展名映射表。没有对应 linter 的文件类型直接跳过，不要硬跑。
+要 git commit？→ PreToolUse hook 触发 `test-before-commit.sh`，拦截 Bash 中的 `git commit` 命令，跑完整测试套件。测试失败则 deny commit 并展示失败用例，agent 修完再提交。测试通过才放行。
 
 <example>
-场景: agent 编辑 handlers.ts，引入了类型错误
-1. agent 调用 Edit 修改 handlers.ts
-2. PostToolUse hook 触发 post-edit-check.sh
-3. 脚本检测 .ts 扩展名 → 跑 tsc --noEmit
-4. tsc 输出 "error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'"
-5. 错误通过 additionalContext 注入 agent 上下文
-6. agent 立即看到 TS2345，当场修复类型不匹配
-结果: 类型错误在产生的同一个 turn 内被修复，不会传播到后续代码
+Agent 编辑 handlers.ts 引入类型错误。PostToolUse hook 检测到 .ts 扩展名，跑 tsc --noEmit，输出 TS2345 错误，通过 additionalContext 注入。Agent 在同一个 turn 内看到错误并修复——类型错误没有传播到后续文件。
 </example>
 
 <anti-example>
-错误用法: 对每次 README.md 编辑都跑 post-edit diagnostics
-README 不是代码文件，没有 linter 可跑，每次编辑后空跑一次检查白白浪费时间。
-这是 M6 (Proportional Intervention) 违规——非代码文件不需要诊断 hook。
-post-edit-check.sh 应按扩展名过滤，非代码文件直接 exit 0。
+对 README.md 编辑跑 post-edit diagnostics。.md 不在扩展名映射表中，没有 linter 可跑，每次空跑浪费时间。post-edit-check.sh 按扩展名过滤，无映射的文件 exit 0。
 </anti-example>
 
 ## Output
@@ -107,3 +92,10 @@ post-edit-check.sh 应按扩展名过滤，非代码文件直接 exit 0。
 - `tool-governance` — 错误追踪器记录诊断失败（tool-error-tracker 追踪连续 linter 失败）
 - `execution-loop` — doubt gate 检测未验证声明（agent 说"应该没问题"但没跑检查时拦截）
 - `context-memory` — 诊断结果写入 handoff document，跨 session 传递未修复的已知问题
+
+
+## Quick Start
+
+```bash
+# TODO: Add usage examples
+```
