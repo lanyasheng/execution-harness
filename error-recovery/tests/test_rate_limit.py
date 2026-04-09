@@ -60,3 +60,13 @@ class TestRateLimitRecovery:
         )
         # Should exit cleanly regardless
         assert result.returncode == 0
+
+    def test_confirmation_prompt_guard_in_source(self, env):
+        """Script source should contain confirmation prompt safety check."""
+        e, _ = env
+        script_text = (SCRIPTS_DIR / "rate-limit-recovery.sh").read_text()
+        # Verify the safety guard exists in the script
+        assert "are you sure" in script_text.lower() or "confirm" in script_text.lower(), \
+            "Script should check for confirmation prompts before sending Enter"
+        assert "y/n" in script_text.lower() or "yes/no" in script_text.lower(), \
+            "Script should detect y/n confirmation patterns"

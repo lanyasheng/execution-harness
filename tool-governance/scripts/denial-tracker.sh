@@ -45,7 +45,7 @@ fi
 COUNT=$((COUNT + 1))
 
 # Write state atomically
-TMP="${STATE_FILE}.${$}.tmp"
+TMP="${STATE_FILE}.${$}.$(date +%s).tmp"
 if [ -f "$STATE_FILE" ]; then
   jq --arg t "$TOOL" --argjson c "$COUNT" --arg ts "$NOW" \
     '.patterns[$t] = {count: $c, last: $ts}' "$STATE_FILE" > "$TMP"

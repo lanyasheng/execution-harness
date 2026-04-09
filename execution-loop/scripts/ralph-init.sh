@@ -8,8 +8,9 @@
 
 set -euo pipefail
 
-SESSION_ID="${1:?Usage: ralph-init.sh <session-id> [max-iterations]}"
+SESSION_ID="${1:?Usage: ralph-init.sh <session-id> [max-iterations] [original-task]}"
 MAX_ITERATIONS="${2:-50}"
+ORIGINAL_TASK="${3:-}"
 
 SESSION_DIR="${HOME}/.openclaw/shared-context/sessions/${SESSION_ID}"
 mkdir -p "$SESSION_DIR/handoffs"
@@ -42,4 +43,11 @@ jq -n --arg sid "$SESSION_ID" --argjson max "$MAX_ITERATIONS" --arg ts "$NOW" \
   '{session_id: $sid, active: true, iteration: 0, max_iterations: $max, created_at: $ts, last_checked_at: $ts}' \
   > "$TMP"
 mv "$TMP" "$STATE_FILE"
+# Write original task for drift-reanchor.sh if provided
+if [ -n "$ORIGINAL_TASK" ]; then
+  REANCHOR_TMP="${SESSION_DIR}/reanchor.json.${$}.$(date +%s).tmp"
+  jq -n --arg task "$ORIGINAL_TASK" --argjson count 0 \
+    '{"original_task":$task,"turn_count":$count}' > "$REANCHOR_TMP"
+  mv "$REANCHOR_TMP" "${SESSION_DIR}/reanchor.json"
+fi
 echo "Ralph initialized: ${STATE_FILE} (max ${MAX_ITERATIONS} iterations)"

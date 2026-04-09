@@ -83,6 +83,35 @@ class TestDriftReanchor:
         result = json.loads(stdout)
         assert result.get("continue") is True
 
+    def test_reads_original_task_from_md_file(self, env):
+        """When original-task.md exists, drift-reanchor should use it as anchor."""
+        e, tmp = env
+        e["REANCHOR_INTERVAL"] = "2"
+        session_dir = tmp / ".openclaw/shared-context/sessions/test-sess"
+        session_dir.mkdir(parents=True, exist_ok=True)
+        # Write original-task.md (the fallback source)
+        (session_dir / "original-task.md").write_text("Refactor all 7 files in src/handlers")
+        inp = json.dumps({"last_assistant_message": "working"})
+        run(e, inp)  # turn 1 (init — should pick up task from md file)
+        stdout, rc = run(e, inp)  # turn 2, interval=2, should fire
+        assert rc == 0
+        result = json.loads(stdout)
+        ctx = result.get("hookSpecificOutput", {}).get("additionalContext", "")
+        assert "Refactor all 7 files" in ctx
+
+    def test_ralph_init_writes_reanchor(self, env):
+        """ralph-init.sh with 3rd arg should create reanchor.json with original_task."""
+        e, tmp = env
+        result = subprocess.run(
+            ["bash", str(SCRIPTS_DIR / "ralph-init.sh"), "test-sess", "50", "Fix the login bug"],
+            capture_output=True, text=True, env=e, timeout=10,
+        )
+        assert result.returncode == 0
+        reanchor = tmp / ".openclaw/shared-context/sessions/test-sess/reanchor.json"
+        assert reanchor.exists()
+        data = json.loads(reanchor.read_text())
+        assert data["original_task"] == "Fix the login bug"
+
     def test_no_session_allows(self, env):
         e, _ = env
         e["NC_SESSION"] = ""

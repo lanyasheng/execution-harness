@@ -100,3 +100,34 @@ class TestToolErrorAdvisor:
         # PreToolUse uses hookSpecificOutput.permissionDecision, not top-level decision
         perm = result.get("hookSpecificOutput", {}).get("permissionDecision")
         assert perm == "deny"
+
+
+class TestHashFallbackChain:
+    """Verify the hash computation fallback chain in tracker/advisor."""
+
+    def test_tracker_produces_deterministic_hash(self, env):
+        """Same tool+input should produce same hash across two calls."""
+        e, tmp = env
+        fail_inp = make_failure_input()
+        run("tool-error-tracker.sh", e, fail_inp)
+        state = tmp / ".openclaw/shared-context/sessions/test-sess/tool-errors.json"
+        hash1 = json.loads(state.read_text())["input_hash"]
+        run("tool-error-tracker.sh", e, fail_inp)
+        hash2 = json.loads(state.read_text())["input_hash"]
+        assert hash1 == hash2
+        assert hash1 != "unknown", "Hash should not fall through to 'unknown'"
+
+    def test_different_input_different_hash(self, env):
+        """Different tool input should produce different hash."""
+        e, tmp = env
+        inp1 = json.dumps({"tool_name": "Bash", "tool_input": {"command": "cargo build"},
+                           "tool_error": "not found"})
+        inp2 = json.dumps({"tool_name": "Bash", "tool_input": {"command": "cargo test"},
+                           "tool_error": "not found"})
+        run("tool-error-tracker.sh", e, inp1, session_id="s1")
+        state1 = tmp / ".openclaw/shared-context/sessions/s1/tool-errors.json"
+        hash1 = json.loads(state1.read_text())["input_hash"]
+        run("tool-error-tracker.sh", e, inp2, session_id="s2")
+        state2 = tmp / ".openclaw/shared-context/sessions/s2/tool-errors.json"
+        hash2 = json.loads(state2.read_text())["input_hash"]
+        assert hash1 != hash2

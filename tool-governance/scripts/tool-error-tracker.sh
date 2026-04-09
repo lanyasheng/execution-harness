@@ -22,7 +22,7 @@ TOOL=$(echo "$INPUT" | jq -r '.tool_name // ""')
 ERROR=$(echo "$INPUT" | jq -r '.error // ""' | head -c 500)
 # Use compact sorted JSON for deterministic hashing
 INPUT_RAW=$(echo "$INPUT" | jq -Sc '.tool_input // ""' | head -c 200)
-INPUT_HASH=$(echo "$INPUT_RAW" | md5 2>/dev/null || echo "$INPUT_RAW" | md5sum 2>/dev/null | cut -d' ' -f1 || shasum 2>/dev/null | cut -d' ' -f1 || echo "unknown")
+INPUT_HASH=$(echo "$INPUT_RAW" | md5 2>/dev/null || echo "$INPUT_RAW" | md5sum 2>/dev/null | cut -d' ' -f1 || echo "$INPUT_RAW" | shasum 2>/dev/null | cut -d' ' -f1 || echo "unknown")
 NOW=$(date -u +%FT%TZ)
 
 # Read existing state

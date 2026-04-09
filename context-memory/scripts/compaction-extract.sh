@@ -27,7 +27,7 @@ fi
 STOP_COUNT=$((STOP_COUNT + 1))
 
 # Update state
-TMP="${STATE_FILE}.${$}.tmp"
+TMP="${STATE_FILE}.${$}.$(date +%s).tmp"
 jq -n --argjson count "$STOP_COUNT" '{"stop_count":$count}' > "$TMP"
 mv "$TMP" "$STATE_FILE"
 
@@ -44,7 +44,8 @@ LAST_MSG=$(echo "$INPUT" | jq -r '.last_assistant_message // ""' 2>/dev/null | h
 TIMESTAMP=$(date +%s)
 HANDOFF_FILE="${HANDOFFS_DIR}/pre-compact-${TIMESTAMP}.md"
 
-cat > "$HANDOFF_FILE" << EOF
+HANDOFF_TMP="${HANDOFF_FILE}.${$}.$(date +%s).tmp"
+cat > "$HANDOFF_TMP" << EOF
 # Pre-Compaction Knowledge Extract
 Timestamp: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
 Session: ${SESSION_ID}
@@ -53,6 +54,7 @@ Stop count: ${STOP_COUNT}
 ## Context Summary
 ${LAST_MSG}
 EOF
+mv "$HANDOFF_TMP" "$HANDOFF_FILE"
 
 jq -n --arg ctx "Knowledge snapshot saved to handoffs/pre-compact-${TIMESTAMP}.md (stop #${STOP_COUNT})." \
   '{"hookSpecificOutput":{"additionalContext":$ctx}}'

@@ -20,11 +20,20 @@ mkdir -p "$SESSION_DIR"
 # Get last assistant message (may contain clues about the task)
 LAST_MSG=$(echo "$INPUT" | jq -r '.last_assistant_message // ""' 2>/dev/null | head -c 500)
 
-# First call: save context as anchor and init turn count
+# Read original task from reanchor.json (written by ralph-init.sh) or original-task.md
+ORIGINAL_TASK=""
+if [ -f "$STATE_FILE" ]; then
+  ORIGINAL_TASK=$(jq -r '.original_task // ""' "$STATE_FILE" 2>/dev/null)
+fi
+# Fallback: read from original-task.md if reanchor.json has no task
+if [ -z "$ORIGINAL_TASK" ] && [ -f "${SESSION_DIR}/original-task.md" ]; then
+  ORIGINAL_TASK=$(head -c 2000 "${SESSION_DIR}/original-task.md")
+fi
+
+# First call: init state file with whatever task we found
 if [ ! -f "$STATE_FILE" ]; then
-  # On first stop, we don't have the original task yet — just init counter
-  TMP="${STATE_FILE}.${$}.tmp"
-  jq -n --argjson count 1 --arg task "" \
+  TMP="${STATE_FILE}.${$}.$(date +%s).tmp"
+  jq -n --argjson count 1 --arg task "$ORIGINAL_TASK" \
     '{"turn_count":$count,"original_task":$task}' > "$TMP"
   mv "$TMP" "$STATE_FILE"
   echo '{"continue":true}'
@@ -34,7 +43,6 @@ fi
 # Increment turn count
 TURN_COUNT=$(jq -r '.turn_count // 0' "$STATE_FILE" 2>/dev/null)
 TURN_COUNT=$((TURN_COUNT + 1))
-ORIGINAL_TASK=$(jq -r '.original_task // ""' "$STATE_FILE" 2>/dev/null)
 
 # Update state
 TMP="${STATE_FILE}.${$}.tmp"

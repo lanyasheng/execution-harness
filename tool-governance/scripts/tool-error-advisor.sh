@@ -18,7 +18,7 @@ STATE_FILE="${SESSIONS_DIR}/${SESSION_ID}/tool-errors.json"
 
 TOOL=$(echo "$INPUT" | jq -r '.tool_name // ""')
 INPUT_RAW=$(echo "$INPUT" | jq -Sc '.tool_input // ""' | head -c 200)
-INPUT_HASH=$(echo "$INPUT_RAW" | md5 2>/dev/null || echo "$INPUT_RAW" | md5sum 2>/dev/null | cut -d' ' -f1 || shasum 2>/dev/null | cut -d' ' -f1 || echo "unknown")
+INPUT_HASH=$(echo "$INPUT_RAW" | md5 2>/dev/null || echo "$INPUT_RAW" | md5sum 2>/dev/null | cut -d' ' -f1 || echo "$INPUT_RAW" | shasum 2>/dev/null | cut -d' ' -f1 || echo "unknown")
 
 PREV_TOOL=$(jq -r '.tool_name // ""' "$STATE_FILE")
 PREV_HASH=$(jq -r '.input_hash // ""' "$STATE_FILE")

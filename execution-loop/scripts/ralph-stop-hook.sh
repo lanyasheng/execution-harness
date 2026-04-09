@@ -39,7 +39,7 @@ parse_utc_epoch() {
   local clean=$(echo "$ts" | sed 's/T/ /;s/Z//')
   TZ=UTC date -j -f "%Y-%m-%d %H:%M:%S" "$clean" +%s 2>/dev/null || \
   date -u -d "$ts" +%s 2>/dev/null || \
-  python3 -c "import datetime; print(int(datetime.datetime.fromisoformat('$ts'.replace('Z','+00:00')).timestamp()))" 2>/dev/null || \
+  TS="$ts" python3 -c "import os,datetime; print(int(datetime.datetime.fromisoformat(os.environ['TS'].replace('Z','+00:00')).timestamp()))" 2>/dev/null || \
   echo 0
 }
 

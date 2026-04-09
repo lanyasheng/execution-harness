@@ -40,6 +40,12 @@ tmux list-panes -a -F "#{pane_id}" 2>/dev/null | while read -r PANE_ID; do
       fi
     fi
 
+    # Safety: skip if pane shows a confirmation prompt (could accidentally confirm destructive action)
+    if echo "$CONTENT" | grep -qiE '(are you sure|confirm|delete|destroy|y/n|yes/no)'; then
+      echo "Skipped pane $PANE_ID (confirmation prompt detected alongside rate limit)" >&2
+      continue
+    fi
+
     # Send Enter to resume
     tmux send-keys -t "$PANE_ID" Enter 2>/dev/null || true
     date +%s > "$COOLDOWN_FILE"
