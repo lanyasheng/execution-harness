@@ -54,6 +54,16 @@ SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // ""' 2>/dev/null)
 # Session directory
 SESSION_DIR="${SESSIONS_DIR}/${SESSION_ID}"
 
+# === Completion Tracker: block if no substantive tool calls ===
+# Only applies when ralph is NOT active (normal interactive sessions)
+TASK_FILE="${HOME}/.claude/state/current-task.json"
+if [ -f "$TASK_FILE" ]; then
+  CHECKPOINTS=$(jq '.checkpoints | length' "$TASK_FILE" 2>/dev/null || echo 0)
+  if [ "$CHECKPOINTS" -eq 0 ]; then
+    block_with_reason "你还没有做任何实际操作（无 Edit/Write/Bash 调用）。请先完成任务再结束。"
+  fi
+fi
+
 # Check ralph state file exists
 STATE_FILE="${SESSION_DIR}/ralph.json"
 [ -f "$STATE_FILE" ] || allow

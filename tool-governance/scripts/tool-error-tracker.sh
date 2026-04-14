@@ -3,7 +3,7 @@
 # Writes to sessions/<session-id>/tool-errors.json
 # Outputs additionalContext when failure count >= threshold
 
-set -euo pipefail
+set -uo pipefail
 
 SESSIONS_DIR="${HOME}/.openclaw/shared-context/sessions"
 SOFT_THRESHOLD=3
@@ -19,9 +19,11 @@ mkdir -p "$SESSION_DIR"
 STATE_FILE="${SESSION_DIR}/tool-errors.json"
 
 TOOL=$(echo "$INPUT" | jq -r '.tool_name // ""')
-ERROR=$(echo "$INPUT" | jq -r '.error // ""' | head -c 500)
+ERROR=$(echo "$INPUT" | jq -r '.error // ""' 2>/dev/null)
+ERROR="${ERROR:0:500}"
 # Use compact sorted JSON for deterministic hashing
-INPUT_RAW=$(echo "$INPUT" | jq -Sc '.tool_input // ""' | head -c 200)
+INPUT_RAW=$(echo "$INPUT" | jq -Sc '.tool_input // ""' 2>/dev/null)
+INPUT_RAW="${INPUT_RAW:0:200}"
 INPUT_HASH=$(echo "$INPUT_RAW" | md5 2>/dev/null || echo "$INPUT_RAW" | md5sum 2>/dev/null | cut -d' ' -f1 || echo "$INPUT_RAW" | shasum 2>/dev/null | cut -d' ' -f1 || echo "unknown")
 NOW=$(date -u +%FT%TZ)
 

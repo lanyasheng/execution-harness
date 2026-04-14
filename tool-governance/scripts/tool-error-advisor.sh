@@ -3,7 +3,7 @@
 # Reads sessions/<session-id>/tool-errors.json
 # Returns additionalContext if the same tool+input pattern is about to be retried
 
-set -euo pipefail
+set -uo pipefail
 
 SESSIONS_DIR="${HOME}/.openclaw/shared-context/sessions"
 HARD_THRESHOLD=5
@@ -17,7 +17,8 @@ STATE_FILE="${SESSIONS_DIR}/${SESSION_ID}/tool-errors.json"
 [ -f "$STATE_FILE" ] || { echo '{"continue":true}'; exit 0; }
 
 TOOL=$(echo "$INPUT" | jq -r '.tool_name // ""')
-INPUT_RAW=$(echo "$INPUT" | jq -Sc '.tool_input // ""' | head -c 200)
+INPUT_RAW=$(echo "$INPUT" | jq -Sc '.tool_input // ""' 2>/dev/null)
+INPUT_RAW="${INPUT_RAW:0:200}"
 INPUT_HASH=$(echo "$INPUT_RAW" | md5 2>/dev/null || echo "$INPUT_RAW" | md5sum 2>/dev/null | cut -d' ' -f1 || echo "$INPUT_RAW" | shasum 2>/dev/null | cut -d' ' -f1 || echo "unknown")
 
 PREV_TOOL=$(jq -r '.tool_name // ""' "$STATE_FILE")
